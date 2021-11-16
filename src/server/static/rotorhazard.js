@@ -7,17 +7,6 @@ const SPLMSK_PILOT_NAME = 0x01
 const SPLMSK_SPLIT_ID = 0x02
 const SPLMSK_SPLIT_TIME = 0x04
 
-// minimum value in logarithmic volume range and limit value for "zero" volume
-const MIN_LOG_VOLUME = 0.01;
-const MIN_LOG_VOL_LIM = MIN_LOG_VOLUME + MIN_LOG_VOLUME/1000.0;
-const MAX_LOG_VOLUME = 1.0;
-
-const LEADER_FLAG_CHAR = 'L';
-const WINNER_FLAG_CHAR = 'W';
-
-var speakObjsQueue = [];
-var checkSpeakQueueFlag = true;
-
 /* global functions */
 function supportsLocalStorage() {
 	try {
@@ -38,30 +27,20 @@ function median(arr){
 	return (values[half - 1] + values[half]) / 2.0;
 }
 
-// Pad to 2 or 3 digits, default is 2
-function pad(n, z=2) {
-	return ('000000' + n).slice(-z);
-}
+function formatTimeMillis(s) {
+	// Pad to 2 or 3 digits, default is 2
+	function pad(n, z) {
+	z = z || 2;
+		return ('00' + n).slice(-z);
+	}
 
-function formatTimeMillis(s, timeformat='{m}:{s}.{d}') {
 	s = Math.round(s);
 	var ms = s % 1000;
 	s = (s - ms) / 1000;
 	var secs = s % 60;
 	var mins = (s - secs) / 60;
 
-	if (!formatted_time) {
-		timeformat = '{m}:{s}.{d}';
-	}
-	var formatted_time = timeformat.replace('{d}', pad(ms, 3));
-	formatted_time = formatted_time.replace('{s}', pad(secs));
-	formatted_time = formatted_time.replace('{m}', mins)
-
-	return formatted_time;
-}
-
-function colorvalToHex(color) {
-	return '#' + pad(color.toString(16), 6);
+	return mins + ':' + pad(secs) + '.' + pad(ms, 3);
 }
 
 function convertColor(color) {
@@ -93,14 +72,6 @@ function contrastColor(hexcolor) {
 	}
 }
 
-function rgbtoHex(rgb) {
-    rgb = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-    function hex(x) {
-        return ("0" + parseInt(x).toString(16)).slice(-2);
-    }
-    return "#" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]);
-}
-
 function hslToHex(h, s, l) {
 	h = parseInt(h.replace(/[^0-9\.]/gi, '')) / 360;
 	s = parseInt(s.replace(/[^0-9\.]/gi, '')) / 100;
@@ -129,33 +100,6 @@ function hslToHex(h, s, l) {
 		return hex.length === 1 ? '0' + hex : hex;
 	};
 	return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-function hexToHsl(hex) {
-	var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-		r = parseInt(result[1], 16);
-		g = parseInt(result[2], 16);
-		b = parseInt(result[3], 16);
-		r /= 255, g /= 255, b /= 255;
-		var max = Math.max(r, g, b), min = Math.min(r, g, b);
-		var h, s, l = (max + min) / 2;
-		if(max == min){
-			h = s = 0; // achromatic
-		}else{
-			var d = max - min;
-			s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-			switch(max){
-				case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-				case g: h = (b - r) / d + 2; break;
-				case b: h = (r - g) / d + 4; break;
-			}
-			h /= 6;
-		}
-	var HSL = new Object();
-	HSL['h']=h * 360;
-	HSL['s']=s * 100;
-	HSL['l']=l * 100;
-	return HSL;
 }
 
 function LogSlider(options) {
@@ -446,115 +390,41 @@ var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 //callback to use on end of tone
 /* https://stackoverflow.com/questions/879152/how-do-i-make-javascript-beep/29641185#29641185 */
 function play_beep(duration, frequency, volume, type, fadetime, callback) {
-	if (volume && volume > MIN_LOG_VOL_LIM) {
-		var oscillator = globalAudioCtx.createOscillator();
-		var gainNode = globalAudioCtx.createGain();
-	
-		oscillator.connect(gainNode);
-		gainNode.connect(globalAudioCtx.destination);
-	
-		if (!duration)
-			duration = 500;
-	
+	var oscillator = globalAudioCtx.createOscillator();
+	var gainNode = globalAudioCtx.createGain();
+
+	oscillator.connect(gainNode);
+	gainNode.connect(globalAudioCtx.destination);
+
+	if (!duration)
+		duration = 500;
+
+	if (volume) {
 		gainNode.gain.value = volume;
-	
-		if (frequency)
-			oscillator.frequency.value = frequency;
-		if (type)
-			oscillator.type = type;
-		if (!fadetime)
-			fadetime = 1;
-		if (callback)
-			oscillator.onended = callback;
-	
-		if(isFirefox)
-			fadetime = 0;
-	
-		oscillator.start();
-		setTimeout(function(fade){
-			gainNode.gain.exponentialRampToValueAtTime(0.00001, globalAudioCtx.currentTime + fade);
-		}, duration, fadetime);
-		/*
-		setTimeout(function(){
-			oscillator.stop();
-		}, duration + (fadetime * 1000));*/
-	}
-};
-
-function play_mp3_beep(audio_obj, volume) {
-	if (volume && volume > MIN_LOG_VOL_LIM) {
-		audio_obj.volume = volume;
-		audio_obj.play();
-	}
-};
-
-function playLeaderTone() {
-	if (rotorhazard.use_mp3_tones) {
-		play_mp3_beep(sound_leader, rotorhazard.indicator_beep_volume);
-	}
-	else {
-		play_beep(75, 1200, rotorhazard.indicator_beep_volume, 'square');
-		setTimeout(function(tone){
-			play_beep(100, 1800, rotorhazard.indicator_beep_volume, 'square');
-		}, 75, 0);
-	}
-};
-
-function playWinnerTone() {
-	if (rotorhazard.use_mp3_tones) {
-		play_mp3_beep(sound_winner, rotorhazard.indicator_beep_volume);
-	}
-	else {
-		play_beep(50, 1200, rotorhazard.indicator_beep_volume, 'square');
-		setTimeout(function(tone) {
-			play_beep(75, 1800, rotorhazard.indicator_beep_volume, 'square');
-		}, 50, 0);
-		setTimeout(function(tone) {
-			play_beep(50, 1200, rotorhazard.indicator_beep_volume, 'square');
-		}, 125, 0);
-		setTimeout(function(tone) {
-			play_beep(75, 1800, rotorhazard.indicator_beep_volume, 'square');
-		}, 175, 0);
-		setTimeout(function(tone) {
-			play_beep(50, 1200, rotorhazard.indicator_beep_volume, 'square');
-		}, 250, 0);
-		setTimeout(function(tone) {
-			play_beep(100, 1800, rotorhazard.indicator_beep_volume, 'square');
-		}, 300, 0);
-	}
-};
-
-function doSpeak(obj) {
-	if (obj.startsWith(LEADER_FLAG_CHAR)) {
-		obj = obj.substring(1);
-		if (rotorhazard.beep_race_leader_lap) {
-			playLeaderTone();
-		}
-	}
-	else if (obj.startsWith(WINNER_FLAG_CHAR)) {
-		obj = obj.substring(1);
-		if (rotorhazard.beep_race_winner_declared) {
-			playWinnerTone();
-		}
-	}
-	if (rotorhazard.voice_volume && rotorhazard.voice_volume > MIN_LOG_VOL_LIM) {
-		if (obj.length > 0) {
-			$(obj).articulate('setVoice','name', rotorhazard.voice_language).articulate('speak');
-			return true;
-		}
-	}
-	return false;
-};
-
-function speak(obj, priority) {
-	if (typeof(priority)=='undefined')
-		priority = false;
-
-	if (priority) {
-		speakObjsQueue.unshift(obj);
 	} else {
-		speakObjsQueue.push(obj);
+		gainNode.gain.value = 1;
 	}
+
+	if (frequency)
+		oscillator.frequency.value = frequency;
+	if (type)
+		oscillator.type = type;
+	if (!fadetime)
+		fadetime = 1;
+	if (callback)
+		oscillator.onended = callback;
+
+	if(isFirefox)
+		fadetime = 0;
+
+	oscillator.start();
+	setTimeout(function(fade){
+		gainNode.gain.exponentialRampToValueAtTime(0.00001, globalAudioCtx.currentTime + fade);
+	}, duration, fadetime);
+	/*
+	setTimeout(function(){
+		oscillator.stop();
+	}, duration + (fadetime * 1000));*/
 };
 
 function __(text) {
@@ -617,7 +487,6 @@ function nodeModel() {
 		minValue: 0,
 	});
 	this.series = new TimeSeries();
-	this.crossingSeries = new TimeSeries();
 
 	this.graphPausedTime = false;
 	this.graphPaused = false;
@@ -669,10 +538,6 @@ nodeModel.prototype = {
 		this.graph.addTimeSeries(this.series, {lineWidth:1.7,
 			strokeStyle:'hsl(214, 53%, 60%)',
 			fillStyle:'hsla(214, 53%, 60%, 0.4)'
-		});
-		this.graph.addTimeSeries(this.crossingSeries, {lineWidth:1.7,
-			strokeStyle:'none',
-			fillStyle:'hsla(136, 71%, 70%, 0.3)'
 		});
 		this.graph.streamTo(element, 200); // match delay value to heartbeat in server.py
 	},
@@ -915,29 +780,6 @@ function parseIntOrBoolean(str) {
 
 /* rotorhazard object for local settings/storage */
 var rotorhazard = {
-	raceMode: {
-		0: 'Fixed time',
-		1: 'No Time Limit',
-	},
-	startBehavior: {
-		0: 'Hole Shot',
-		1: 'First Lap',
-		2: 'Staggered Start',
-	},
-	winCondition: {
-		1: 'Most Laps in Fastest Time',
-		5: 'Most Laps Only',
-		6: 'Most Laps Only with Overtime',
-		2: 'First to X Laps',
-		3: 'Fastest Lap',
-		4: 'Fastest 3 Consecutive Laps',
-		0: 'None',
-	},
-	stagingTones: {
-		2: 'Each Second',
-		1: 'One',
-		0: 'None',
-	},
 	language_strings: {},
 	interface_language: '',
 	// text-to-speech callout options
@@ -972,7 +814,6 @@ var rotorhazard = {
 	display_lap_id: false, //enables the display of the lap id
 	display_time_start: false, //shows the timestamp of the lap since the race was started
 	display_time_first_pass: false, //shows the timestamp of the lap since the first pass was recorded
-	display_laps_reversed: false, //shows race laps in reverse order
 
 	min_lap: 0, // minimum lap time
 	admin: false, // whether to show admin options in nav
@@ -1033,7 +874,6 @@ var rotorhazard = {
 		localStorage['rotorhazard.display_lap_id'] = JSON.stringify(this.display_lap_id);
 		localStorage['rotorhazard.display_time_start'] = JSON.stringify(this.display_time_start);
 		localStorage['rotorhazard.display_time_first_pass'] = JSON.stringify(this.display_time_first_pass);
-		localStorage['rotorhazard.display_laps_reversed'] = JSON.stringify(this.display_laps_reversed);
 		return true;
 	},
 	restoreData: function(dataType) {
@@ -1128,9 +968,6 @@ var rotorhazard = {
 			if (localStorage['rotorhazard.display_time_first_pass']) {
 				this.display_time_first_pass = JSON.parse(localStorage['rotorhazard.display_time_first_pass']);
 			}
-			if (localStorage['rotorhazard.display_laps_reversed']) {
-				this.display_laps_reversed = JSON.parse(localStorage['rotorhazard.display_laps_reversed']);
-			}
 			return true;
 		}
 		return false;
@@ -1182,8 +1019,8 @@ rotorhazard.timer.race.callbacks.start = function(timer){
 	if (timer.staging_tones == TONES_ONE
 		&& timer.max_delay >= 1) {
 		// beep on start if single staging tone
-		if (rotorhazard.use_mp3_tones) {
-			play_mp3_beep(sound_stage, rotorhazard.tone_volume);
+		if( rotorhazard.use_mp3_tones){
+			sound_stage.play();
 		}
 		else {
 			play_beep(100, 440, rotorhazard.tone_volume, 'triangle');
@@ -1201,8 +1038,8 @@ rotorhazard.timer.race.callbacks.step = function(timer){
 			&& timer.staging_tones == TONES_ALL) {
 			// beep every second during staging if timer is hidden
 			if (timer.time_s * 10 % 10 == 0) {
-				if (rotorhazard.use_mp3_tones) {
-					play_mp3_beep(sound_stage, rotorhazard.tone_volume);
+				if( rotorhazard.use_mp3_tones){
+					sound_stage.play();
 				}
 				else {
 					play_beep(100, 440, rotorhazard.tone_volume, 'triangle');
@@ -1216,8 +1053,8 @@ rotorhazard.timer.race.callbacks.step = function(timer){
 			&& timer.time_s >= -5) {
 			// staging beep for last 5 seconds before start
 			if (timer.time_s * 10 % 10 == 0) {
-				if (rotorhazard.use_mp3_tones) {
-					play_mp3_beep(sound_stage, rotorhazard.tone_volume);
+				if( rotorhazard.use_mp3_tones){
+					sound_stage.play();
 				}
 				else {
 					play_beep(100, 440, rotorhazard.tone_volume, 'triangle');
@@ -1228,8 +1065,8 @@ rotorhazard.timer.race.callbacks.step = function(timer){
 		(!timer.count_up && timer.time_s == timer.duration)
 		) {
 		// play start tone
-		if (rotorhazard.use_mp3_tones) {
-			play_mp3_beep(sound_buzzer, rotorhazard.tone_volume);
+		if( rotorhazard.use_mp3_tones){
+			sound_buzzer.play();
 		}
 		else {
 			play_beep(700, 880, rotorhazard.tone_volume, 'triangle', 0.25);
@@ -1238,8 +1075,8 @@ rotorhazard.timer.race.callbacks.step = function(timer){
 		if (!timer.count_up) {
 			if (timer.time_s <= 5) { // Final seconds
 				if (timer.time_s * 10 % 10 == 0) {
-					if (rotorhazard.use_mp3_tones) {
-						play_mp3_beep(sound_stage, rotorhazard.tone_volume);
+					if( rotorhazard.use_mp3_tones){
+						sound_stage.play();
 					}
 					else {
 						play_beep(100, 440, rotorhazard.tone_volume, 'triangle');
@@ -1274,8 +1111,8 @@ rotorhazard.timer.race.callbacks.step = function(timer){
 }
 rotorhazard.timer.race.callbacks.expire = function(timer){
 	// play expired tone
-	if (rotorhazard.use_mp3_tones) {
-		play_mp3_beep(sound_buzzer, rotorhazard.tone_volume);
+	if( rotorhazard.use_mp3_tones){
+		sound_buzzer.play();
 	}
 	else {
 		play_beep(700, 880, rotorhazard.tone_volume, 'triangle', 0.25);
@@ -1527,7 +1364,7 @@ jQuery(document).ready(function($){
 }
 
 /* Leaderboards */
-function build_leaderboard(leaderboard, display_type, meta, display_starts=false) {
+function build_leaderboard(leaderboard, display_type, meta) {
 	if (typeof(display_type) === 'undefined')
 		display_type = 'by_race_time';
 	if (typeof(meta) === 'undefined') {
@@ -1550,9 +1387,6 @@ function build_leaderboard(leaderboard, display_type, meta, display_starts=false
 	header_row.append('<th class="pilot">' + __('Pilot') + '</th>');
 	if (meta.team_racing_mode) {
 		header_row.append('<th class="team">' + __('Team') + '</th>');
-	}
-	if (display_starts == true) {
-		header_row.append('<th class="starts">' + __('Starts') + '</th>');
 	}
 	if (display_type == 'by_race_time' ||
 		display_type == 'heat' ||
@@ -1587,9 +1421,6 @@ function build_leaderboard(leaderboard, display_type, meta, display_starts=false
 		if (meta.team_racing_mode) {
 			row.append('<td class="team">'+ leaderboard[i].team_name +'</td>');
 		}
-		if (display_starts == true) {
-			row.append('<td class="starts">'+ leaderboard[i].starts +'</td>');
-		}
 		if (display_type == 'by_race_time' ||
 		display_type == 'heat' ||
 		display_type == 'round' ||
@@ -1621,18 +1452,8 @@ function build_leaderboard(leaderboard, display_type, meta, display_starts=false
 			if (!lap || lap == '0:00.000')
 				lap = '&#8212;';
 			if (leaderboard[i].fastest_lap_source) {
-				var source = leaderboard[i].fastest_lap_source;
-				row.append('<td class="fast">'+ lap +'</td>');
-
-				if (source.note) {
-					var source_text = source.note
-				} else {
-					var source_text = __('Heat') + ' ' + source.heat;
-				}
-				source_text += ' / ' + __('Round') + ' ' + source.round;
-
-				row.data('source', source_text);
-				row.attr('title', source_text);
+				row.append('<td class="fast" title="'+ leaderboard[i].fastest_lap_source +'">'+ lap +'</td>');
+				row.data('source', leaderboard[i].fastest_lap_source);
 			} else {
 				row.append('<td class="fast">'+ lap +'</td>');
 			}
@@ -1646,18 +1467,8 @@ function build_leaderboard(leaderboard, display_type, meta, display_starts=false
 			if (!lap || lap == '0:00.000')
 				lap = '&#8212;';
 			if (leaderboard[i].consecutives_source) {
-				var source = leaderboard[i].consecutives_source;
-				row.append('<td class="consecutive">'+ lap +'</td>');
-
-				if (source.note) {
-					var source_text = source.note;
-				} else {
-					var source_text = __('Heat') + ' ' + source.heat;
-				}
-				source_text += ' / ' + __('Round') + ' ' + source.round;
-
-				row.data('source', source_text);
-				row.attr('title', source_text);
+				row.append('<td class="consecutive" title="'+ leaderboard[i].consecutives_source +'">'+ lap +'</td>');
+				row.data('source', leaderboard[i].consecutives_source);
 			} else {
 				row.append('<td class="consecutive">'+ lap +'</td>');
 			}
@@ -1967,65 +1778,3 @@ var freq = {
 		}
 	}
 }
-
-/* Color picker */
-var color_picker_el = $('<div id="color-picker" class="popup">');
-color_picker_el.append('<h2>' + __('Select Color') + '</h2>');
-color_picker_el.append('<div id="color-picker-swatch">');
-color_picker_el.append('<input type="range" id="color-picker-hue" min="0" max="359">');
-color_picker_el.append('<input type="range" id="color-picker-sat" min="0" max="100">');
-color_picker_el.append('<input type="range" id="color-picker-lum" min="25" max="100">');
-color_picker_el.append('<button id="color-picker-confirm">' + __('Select') + '</button>');
-
-function color_picker(loadColor=false, callback=false) {
-	$.magnificPopup.open({
-		items: {
-			src: color_picker_el,
-			type: 'inline',
-		},
-		closeOnBgClick: false,
-		showCloseBtn: false,
-		enableEscapeKey: true,
-		callbacks: {
-			open: function() {
-				if (loadColor) {
-					hslObj = hexToHsl(loadColor)
-					$('#color-picker-hue').val(hslObj.h)
-					$('#color-picker-sat').val(hslObj.s)
-					$('#color-picker-lum').val(hslObj.l)
-				} else {
-					$('#color-picker-hue').val(212)
-					$('#color-picker-sat').val(100)
-					$('#color-picker-lum').val(50)
-				}
-				$('html').css('--color-picker-hue', $('#color-picker-hue').val());
-				$('html').css('--color-picker-sat', $('#color-picker-sat').val() + '%');
-				$('html').css('--color-picker-lum', $('#color-picker-lum').val() + '%');
-			},
-			beforeClose: function() {
-				var hue = $('#color-picker-hue').val()
-				var sat = $('#color-picker-sat').val()
-				var lum = $('#color-picker-lum').val()
-				if (typeof callback === 'function') {
-					callback(hue, sat, lum);
-				}
-			}
-		}
-	});
-}
-
-$(document).on('input', '#color-picker-hue', function (event) {
-	$('html').css('--color-picker-hue', $('#color-picker-hue').val());
-});
-
-$(document).on('input', '#color-picker-sat', function (event) {
-	$('html').css('--color-picker-sat', $('#color-picker-sat').val() + '%');
-});
-
-$(document).on('input', '#color-picker-lum', function (event) {
-	$('html').css('--color-picker-lum', $('#color-picker-lum').val() + '%');
-});
-
-$(document).on('click', '#color-picker-confirm', function(){
-	$.magnificPopup.close();
-})
