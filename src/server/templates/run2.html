@@ -1,4 +1,4 @@
-{% extends "layout.html" %} {% block title %}{{ __('Run') }}{% endblock %}{% block head %}
+{% extends "layout_dashv2.html" %} {% block title %}{{ __('Run') }}{% endblock %}{% block head %}
 
 <script type="text/javascript" charset="utf-8">
 	var data_dependencies = [
@@ -1236,9 +1236,9 @@
 		/* LED Controls */
 
 		socket.on('led_effects', function (msg) {
-			var led_html = $('<div class="control-set">');
+			var led_html = $('<div class="form-floating">');
 
-			var led_select = $('<select id="led-effects-select"></select>');
+			var led_select = $('<select class="form-select" id="led-effects-select"></select>');
 
 			const effects = msg.effects.slice().sort((a, b) => (a.label > b.label) ? 1 : -1);
 
@@ -1250,11 +1250,12 @@
 				led_select.append(led_select_option);
 			}
 
-			led_html.append($('<label for="led-effects">' + __('Effect') + '</label>'));
+			
 			led_html.append(' ');
 			led_html.append(led_select);
-			led_html.append(' ');
-			led_html.append($('<button id="use-led-effect">' + __('Go') + '</button>'));
+			led_html.append($('<label for="led-effects-select">Effect</label>'));
+			led_html.append('<br>');
+			led_html.append($('<button class="btn btn-primary btn-sm" id="use-led-effect">' + __('Go') + '</button>'));
 
 			$('#LED-effects').append(led_html);
 		});
@@ -1727,394 +1728,383 @@
 </script>
 {% endblock %} {% block content %}
 
-
-
-<div id="main_panel" class="panel" tabindex="1">
-	<div class="panel-content full-width">
-		<div class="timer">
-			<div class="timing-clock"><div class="warning" title="Browser Sync Loss">&#9888;&#xFE0E;</div><div class="time-display">--:--</div></div>
-		</div>
-
-		<!--Buttons for controlling the race-->
-		<div class="control-set">
-			<label for="set_current_heat" class="screen-reader-text">{{ __('Current Heat') }}</label>
-			<select id="set_current_heat" tabindex="-1">
-				<option value="">{{ __('Loading...') }}</option>
-			</select>
-			<button id="start_race" tabindex="-1"><span class="narrow">{{ __('Start') }}</span><span class="wide">{{ __('Start Race') }}</span></button>
-			<button id="stop_race" tabindex="-1" disabled="disabled"><span class="narrow">{{ __('Stop') }}</span><span class="wide">{{ __('Stop Race') }}</span></button>
-			<button id="save_laps" tabindex="-1" disabled="disabled"><span class="narrow">{{ __('Save') }}</span><span class="wide">{{ __('Save Laps') }}</span></button>
-			<button id="discard_laps" tabindex="-1" disabled="disabled"><span class="narrow">{{ __('Discard') }}</span><span class="wide">{{ __('Discard Laps') }}</span></button>
-		</div>
-
-		<!--Display the race leaderboard-->
-		<div id="leaderboard"></div>
-
-		<div id="team_leaderboard"></div>
-
-		<div class="race_status_message"></div>
-
-		<!--Display the current laps-->
-		<div class="race-results">
-			{% for node in nodes %}
-			<div class="node" id="node-{{ node.index }}">
-				{% if vrx_enabled %}
-					<div class="vrx-header">
-
-					</div>
-				{% endif %}
-				<div class="race-header">
-					<a href="#tuning-detail-{{node.index}}" data-node="{{ node.index }}" class="open-mfp-popup-tuning button-like btn-warning" title="{{ __('Tuning') }}">&#9888;&#xFE0E;</a>
-					<div class="channel-block" data-node="{{ node.index }}"><span class="ch"></span> <span class="fr">{{ node.freq }}</span></div>
-					<button class="simulate_lap" id="manual_lap_{{ node.index }}" data-node="{{ node.index }}" title="{{ __('Manual') }}">+ {{ __('Lap') }}</button>
-				</div>
-				<div class="rssi-graph page" data-node="{{ node.index }}"><canvas id="rssi-graph-{{ node.index }}"></div>
-				<h4 class="callsign_{{ node.index }}">
-					Loading...
-				</h4>
-				<div class="crossing crossing_flag_{{ node.index }}"><span>{{ __('Clear') }}</span></div>
-				<table class="laps" id="current_laps_{{ node.index }}">
-					<thead>
-					</thead>
-					<tbody>
-					</tbody>
-				</table>
-
-				<div id="tuning-detail-{{node.index}}" class="tuning-detail mfp-hide popup">
-					<h2>{{ __('Tuning: Node') }} {{ node.index + 1 }}</h2>
-					<div class="popup-content">
-
-						<div class="rssi-graph in-popup" data-node="{{ node.index }}">
-							<button class="pause_graph" data-node="{{ node.index }}">&#x23ef;&#xFE0E;<span class="screen-reader-text"> {{ __('Pause/Resume Graph') }}</span></button>
-						</div>
-						<div class="crossing crossing_flag_{{ node.index }}"><span>{{ __('Clear') }}</span></div>
-
-						<div class="node-controls">
-							<div class="enter-exit-control">
-								<label for="set_enter_at_level_{{ node.index }}">{{ __('EnterAt') }}</label>
-								<input type="number" id="set_enter_at_level_{{ node.index }}" class="set_enter_at_level" data-node="{{ node.index }}" min="0" max="999">
-								<button class="cap_enter_at_btn" data-node_index="{{ node.index }}">{{ __('Capture') }}</button>
-							</div>
-
-							<div class="enter-exit-control">
-								<label for="set_exit_at_level_{{ node.index }}">{{ __('ExitAt') }}</label>
-								<input type="number" id="set_exit_at_level_{{ node.index }}" class="set_exit_at_level" data-node="{{ node.index }}" min="0" max="999">
-								<button class="cap_exit_at_btn" data-node_index="{{ node.index }}">{{ __('Capture') }}</button>
-							</div>
-						</div>
-						<table>
-							<tr class="datarow">
-								<td>{{ __('RSSI') }}</td>
-								<td>
-									<span class="current_rssi_{{ node.index }}"></span>
-								</td>
-							</tr>
-							<tr class="datarow">
-								<td>{{ __('NodePeak') }}</td>
-								<td>
-									<span class="node_peak_rssi_{{ node.index }}"></span>
-								</td>
-							</tr>
-							<tr class="datarow">
-								<td>{{ __('NodeNadir') }}</td>
-								<td>
-									<span class="node_nadir_rssi_{{ node.index }}"></span>
-								</td>
-							</tr>
-							<tr class="datarow">
-								<td>{{ __('PassPeak') }}</td>
-								<td>
-									<span class="pass_peak_rssi_{{ node.index }}"></span>
-								</td>
-							</tr>
-							<tr class="datarow">
-								<td>{{ __('PassNadir') }}</td>
-								<td>
-									<span class="pass_nadir_rssi_{{ node.index }}"></span>
-								</td>
-							</tr>
-							<tr class="datarow">
-								<td>{{ __('PassCount') }}</td>
-								<td>
-									<span class="debug_pass_count_{{ node.index }}"></span>
-								</td>
-							</tr>
-						</table>
-						<div id="node_notice_{{ node.index }}"></div>
-					</div>
-				</div>
-			</div>
-			{% endfor %}
-		</div>
-	</div>
-</div>
-
-
-
-
+<br>
 
 <div class="row layout-top-spacing">
 
-    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-12 col-12">
+    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-12 col-12">
 	    
-        <div class="statbox widget box box-shadow">
-            <div class="widget-header">                                      
-                <h4>{{ __('Race Management') }}</h4>              
-            </div>
+        <div class="widget-box box-shadow">
 
-            <div class="widget-content widget-content widget-content-area grid-system">
+            <div class="widget-content widget-content widget-content-area grid-system no-padding">
 	            
-	            <ol class="form">
-					<li>
-						<div class="label-block">
-							<label for="schedule_race_time">{{ __('Time Until Race Start') }}</label>
-						</div>
-						<div>
-							<label for="schedule_m" class="screen-reader-text">{{ __('Minutes') }}</label><input type="number" id="schedule_m" min="0" max="999" placeholder="mm">:<label for="schedule_s" class="screen-reader-text">{{ __('Seconds') }}</label><input type="number" id="schedule_s" min="0" max="59" placeholder="ss"> <button id="schedule_race">{{ __('Schedule Race') }}</button> <button id="cancel_schedule_race">{{ __('Cancel') }}</button>
-						</div>
-					</li>
-					<li>
-						<div class="label-block">
-							<label for="set_race_format">{{ __('Race Format') }}</label>
-						</div>
-						<select id="set_race_format">
-							<option>{{ __('Loading...') }}</option>
-						</select>
-					</li>
-					<li>
-						<div class="label-block">
-							<label for="set_profile">{{ __('Profile') }}</label>
-						</div>
-						<select id="set_profile">
-							<option>{{ __('Loading...') }}</option>
-						</select>
-					</li>
-					<li>
-						<div class="label-block">
-							<label for="set_min_lap">{{ __('Minimum Lap Time') }}</label>
-							<p class="desc">{{ __('In seconds') }}</p>
-						</div>
-						<input type="number" id="set_min_lap" min="0" max="999" value="{{ getOption('MinLapSec') }}">
-					</li>
-					<li>
-						<div class="label-block">
-							<label for="set_min_lap_behavior">{{ __('Minimum Lap Behavior') }}</label>
-						</div>
-						<select id="set_min_lap_behavior">
-							<option value="0">{{ __('Highlight Short Laps') }}</option>
-							<option value="1">{{ __('Discard New Short Laps') }}</option>
-						</select>
-					</li>
-					<li>
-						<div class="label-block">
-							<label for="set_next_heat_behavior">{{ __('Next Heat Behavior') }}</label>
-						</div>
-						<select id="set_next_heat_behavior">
-							<option value="0">{{ __('Auto-Switch After Race Save') }}</option>
-							<option value="1">{{ __('Manually Switch Heats') }}</option>
-						</select>
-					</li>
-				</ol>
+				<div class="timer">
+					<div class="timing-clock"><div class="warning" title="Browser Sync Loss">&#9888;&#xFE0E;</div><div class="time-display">--:--</div></div>
+				</div>
+				
+				<div class="timercontrols">
+					
+					<div class="btn-toolbar" role="toolbar" aria-label="Toolbar with button groups">
+					  <div class="btn-group btn-group-playback me-2" role="group" aria-label="Playback Control">
+					    <button id="start_race" type="button" class="btn btn-lg btn-success"> <i class="fas fa-play"></i> </button>
+					    <button id="stop_race" type="button" class="btn btn-lg btn-danger"> <i class="fas fa-stop"></i> </button>
+					  </div>
+					  <div class="btn-group me-2" role="group" aria-label="Racedata">
+					    <button id="save_laps" type="button" class="btn btn-lg btn-secondary"> <i class="fas fa-save"></i> </button>
+					    <button id="discard_laps" type="button" class="btn btn-lg btn-secondary"> <i class="fas fa-trash-alt"></i> </button>
+					  </div>
+					</div>
+							
+				</div>
+				
+				<div class="heatselection">
+					
+					<select id="set_current_heat" class="form-select ">
+						<option value="">{{ __('Loading...') }}</option>
+					</select>
+					
+				</div>
 
 
-	            	            
+	           	            
             </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-12 col-12">
-	    
-        <div class="statbox widget box box-shadow">
-            <div class="widget-header">                                      
-                <h4>{{ __('Display Settings') }}</h4>              
-            </div>
-
-            <div class="widget-content widget-content widget-content-area grid-system">
-	         
-	          	<p class="form-note">{{ __('Display settings apply to this device only.') }}</p>
-				<ol class="form">
-		
-					<li>
-						<div class="label-block">
-							{{ __('Lap Information') }}
-						</div>
-						<ul>
-							<li><label><input type="checkbox" id="display_lap_id"> {{ __('Lap Number') }}</label></li>
-							<li><label><input type="checkbox" id="display_time_start"> {{ __('Time since start') }}</label></li>
-							<li><label><input type="checkbox" id="display_time_first_pass"> {{ __('Time since first pass') }}</label></li>
-						</ul>
-					</li>
-		
-				</ol>
-	          
-            </div>
+            
         </div>
         
         <br>
-        <div class="statbox widget box box-shadow">
-            <div class="widget-header">                                      
-                <h4>{{ __('Audio Settings') }}</h4>              
+        
+        	    
+	    <div class="widget-box box-shadow">
+
+            <div class="widget-content widget-content widget-content-area grid-system no-padding">
+	  
+				<div class="input-group">
+				  <input type="number" class="form-control" placeholder="mm" id="schedule_m" min="0" max="999" aria-label="Minutes">
+				  <span class="input-group-text">:</span>
+				  <input type="number" class="form-control" placeholder="ss" id="schedule_s" min="0" max="59" aria-label="Seconds">				  
+				  <button class="btn btn-success" type="button" id="schedule_race"><i class="fas fa-play"></i></button>
+				  <button class="btn btn-danger" type="button" id="cancel_schedule_race"><i class="fas fa-ban"></i></button>
+				</div>
+				
             </div>
+            
+	    </div>
+	    
+	    <br>
+	    
+	    <div class="widget-box box-shadow">
 
             <div class="widget-content widget-content widget-content-area grid-system">
-			
-				<div class="audio_qs">
-	            	<span>Quick Settings</span>
-	            	<div class="btn-primary audio_qs_btn"><i class="fas fa-volume-up"></i></div>
-	            </div>
-				<br>
 	            
-	            <button type="button" class="btn btn-dark mb-2 mr-2 audiomodalbtn" data-toggle="modal" data-target="#exampleModal">
-                    <i class="fas fa-cogs"></i> Audio Settings
-                </button>
-	        
-	        </div>
-        </div>       
-        
+	            <ul class="nav nav-pills dark mb-3" id="pills-tab" role="tablist">
+					<li class="nav-item" role="presentation">
+				    	<button class="nav-link btn-sm active" id="qs_race_tab" data-bs-toggle="pill" data-bs-target="#qs_race" type="button" role="tab" aria-controls="qs_race" aria-selected="true"><i class="fas fa-flag-checkered"></i></button>
+					</li>
+					<li class="nav-item" role="presentation">
+				    	<button class="nav-link btn-sm" id="qs_led_tab" data-bs-toggle="pill" data-bs-target="#qs_led" type="button" role="tab" aria-controls="qs_led"><i class="far fa-lightbulb"></i></button>
+					</li>
+					<li class="nav-item" role="presentation">
+				    	<button class="nav-link btn-sm" id="qs_display_tab" data-bs-toggle="pill" data-bs-target="#qs_display" type="button" role="tab" aria-controls="qs_display"><i class="fas fa-tv"></i></button>
+					</li>
+					<li class="nav-item" role="presentation">
+				    	<button class="nav-link btn-sm" id="qs_audio_tab" data-bs-toggle="pill" data-bs-target="#qs_audio" type="button" role="tab" aria-controls="qs_audio"><i class="fas fa-volume-up"></i></button>
+					</li>
+				</ul>
+				
+				<div class="tab-content">
+					
+					<div class="tab-pane fade show active" id="qs_race" role="tabpanel" aria-labelledby="qs_race_tab">
+					
+						<div class="form-floating mb10">
+							<select class="form-select" id="set_race_format">
+						    	<option>{{ __('Loading...') }}</option>
+							</select>
+							<label for="set_race_format">{{ __('Race Format') }}</label>
+						</div>
+					
+						<div class="form-floating mb10">
+							<select class="form-select" id="set_profile">
+						    	<option>{{ __('Loading...') }}</option>
+							</select>
+							<label for="set_profile">{{ __('Profile') }}</label>
+						</div>
+						
+						
+						<div class="form-floating mb10">
+							<input type="number" class="form-control" id="set_min_lap">
+							<label for="set_min_lap" value="{{ getOption('MinLapSec') }}">{{ __('Min Lap Time') }}</label>
+						</div>							
+		
+		
+		
+						<div class="form-floating mb10">
+							<select class="form-select dark" id="set_min_lap_behavior">
+						    	<option value="0">{{ __('Highlight Short Laps') }}</option>
+								<option value="1">{{ __('Discard New Short Laps') }}</option>
+							</select>
+							<label for="set_min_lap_behavior">{{ __('Minimum Lap Behaviour') }}</label>
+						</div>
+		
+		
+						<div class="form-floating">
+							<select class="form-select" id="set_next_heat_behavior">
+						    	<option value="0">{{ __('Auto-Switch After Race Save') }}</option>
+								<option value="1">{{ __('Manually Switch Heats') }}</option>
+							</select>
+							<label for="set_next_heat_behavior">{{ __('Next Heat Behaviour') }}</label>
+						</div>						
+					
+					</div>
+					
+					
+					
+					<!-- LED Control -->
+					<div class="tab-pane fade" id="qs_led" role="tabpanel" aria-labelledby="qs_led_tab">
+						<div class="control-set">
+							<button class="LED-color btn btn-sm btn-light" data-rgb="#000000">{{ __('Turn Off') }}</button>
+						</div>
+						
+						<br>
+				
+						<div class="control-set ledcolorswatches">
+							<button class="LED-color" data-rgb="#001fff"><span style="background-color:#001fff"></span></button>
+							<button class="LED-color" data-rgb="#ff3f00"><span style="background-color:#ff3f00"></span></button>
+							<button class="LED-color" data-rgb="#7fff00"><span style="background-color:#7fff00"></span></button>
+							<button class="LED-color" data-rgb="#ffff00"><span style="background-color:#ffff00"></span></button>
+							<button class="LED-color" data-rgb="#7f00ff"><span style="background-color:#7f00ff"></span></button>
+							<button class="LED-color" data-rgb="#ff007f"><span style="background-color:#ff007f"></span></button>
+							<button class="LED-color" data-rgb="#3fff3f"><span style="background-color:#3fff3f"></span></button>
+							<button class="LED-color" data-rgb="#00bfff"><span style="background-color:#00bfff"></span></button>
+						</div>
+						
+						<br>
+						
+						<h6>{{ __('LED Brightness') }}</h6> 
+						<p class="desc led_level">{{ __('Level') }}: <span id="led_brightness_value"></span></p>
+						<input type="range" id="set_led_brightness" min="1" max="25">
+						
+						<br><br>
+						
+						<h6>{{ __('LED Color') }}</h6> 
+						
+						<input type="color" id="set_led_color" />
+						
+						<br><br>
+							
+				
+						<div id="LED-effects"></div>
+					</div>
+					
+					
+					<!-- Display Settings -->
+					<div class="tab-pane fade" id="qs_display" role="tabpanel" aria-labelledby="qs_display_tab">
+						
+						<p class="form-note">{{ __('Display settings apply to this device only.') }}</p>
+						
+						<div class="form-check form-switch">
+						  <input class="form-check-input" type="checkbox" role="switch" id="display_lap_id">
+						  <label class="form-check-label" for="display_lap_id">{{ __('Lap Number') }}</label>
+						</div>
+
+						<div class="form-check form-switch">
+						  <input class="form-check-input" type="checkbox" role="switch" id="display_time_start">
+						  <label class="form-check-label" for="display_time_start">{{ __('Time since start') }}</label>
+						</div>
+						
+						<div class="form-check form-switch">
+						  <input class="form-check-input" type="checkbox" role="switch" id="display_time_first_pass">
+						  <label class="form-check-label" for="display_time_first_pass">{{ __('Time since first pass') }}</label>
+						</div>						
+																		
+					</div>
+
+
+					<!-- Audio Settings -->
+					<div class="tab-pane fade" id="qs_audio" role="tabpanel" aria-labelledby="qs_audio-tab">
+						<div class="audio_qs">
+			            	<span>Quick Settings</span>
+			            	<div class="btn-primary audio_qs_btn"><i class="fas fa-volume-up"></i></div>
+			            </div>
+						<br>
+			            
+			            <button type="button" class="btn btn-dark mb-2 mr-2 audiomodalbtn" data-bs-toggle="modal" data-bs-target="#audioModal">
+		                    <i class="fas fa-cogs"></i> Audio Settings
+		                </button>
+					</div>
+					
+					
+					
+
+					  
+				</div>
+	  
+					
+				
+				
+            </div>
+            
+	    </div>	    
+	    
+	 
         
     </div>
-    
-    <!--LED Controls-->
-	{% if led_enabled %}	
-    
-    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-12 col-12">
-	    
+
+
+    <div class="col-xl-9 col-lg-9 col-md-9 col-sm-12 col-12">
+        
         <div class="statbox widget box box-shadow">
-            <div class="widget-header">                                      
-                <h4>{{ __('LED Control') }}</h4>              
-            </div>
 
             <div class="widget-content widget-content widget-content-area grid-system">
-	          
-	            <div class="control-set">
-					<button class="LED-color" data-rgb="#000000">{{ __('Turn Off') }}</button>
-				</div>
-		
-				<div class="control-set">
-					<button class="LED-color" data-rgb="#001fff"><span style="background-color:#001fff"></span></button>
-					<button class="LED-color" data-rgb="#ff3f00"><span style="background-color:#ff3f00"></span></button>
-					<button class="LED-color" data-rgb="#7fff00"><span style="background-color:#7fff00"></span></button>
-					<button class="LED-color" data-rgb="#ffff00"><span style="background-color:#ffff00"></span></button>
-					<button class="LED-color" data-rgb="#7f00ff"><span style="background-color:#7f00ff"></span></button>
-					<button class="LED-color" data-rgb="#ff007f"><span style="background-color:#ff007f"></span></button>
-					<button class="LED-color" data-rgb="#3fff3f"><span style="background-color:#3fff3f"></span></button>
-					<button class="LED-color" data-rgb="#00bfff"><span style="background-color:#00bfff"></span></button>
-				</div>
-		
-				<ol class="form">
-					<li>
-						<div class="label-block">
-							<label for="set_led_brightness">{{ __('LED Brightness') }}</label>
-							<p class="desc">{{ __('Level') }}: <span id="led_brightness_value"></span></p>
-						</div>
-						<input type="range" id="set_led_brightness" min="1" max="25">
-					</li>
-					<li>
-						<div class="label-block">
-							<label for="set_led_color">{{ __('LED Color') }}</label>
-						</div>
-						<input type="color" id="set_led_color" />
-					</li>
-				</ol>
-		
-				<div id="LED-effects"></div>
-	          
+	            
+	            <div id="leaderboard"></div>
+	            
             </div>
+            
+        </div>	 
+        
+        
+        <br>
+        
+	    
+        <div class="statbox widget box box-shadow">
+
+            <div class="widget-content widget-content widget-content-area grid-system">
+	            
+	            <div id="team_leaderboard"></div>
+				<div class="race_status_message"></div>
+	            
+	            
+				<!--Display the current laps-->
+				<div class="race-results">
+					{% for node in nodes %}
+					<div class="node" id="node-{{ node.index }}">
+						{% if vrx_enabled %}
+							<div class="vrx-header">
+		
+							</div>
+						{% endif %}
+						<div class="race-header">
+							<a href="#tuning-detail-{{node.index}}" data-node="{{ node.index }}" class="open-mfp-popup-tuning button-like btn-warning" title="{{ __('Tuning') }}">&#9888;&#xFE0E;</a>
+							<div class="channel-block" data-node="{{ node.index }}"><span class="ch"></span> <span class="fr">{{ node.freq }}</span></div>
+							<button class="simulate_lap btn btn-light btn-sm" id="manual_lap_{{ node.index }}" data-node="{{ node.index }}" title="{{ __('Manual') }}">+ {{ __('Lap') }}</button>
+						</div>
+						<div class="rssi-graph page" data-node="{{ node.index }}"><canvas id="rssi-graph-{{ node.index }}"></div>
+						<h4 class="callsign_{{ node.index }}">
+							Loading...
+						</h4>
+						<div class="crossing crossing_flag_{{ node.index }}"><span>{{ __('Clear') }}</span></div>
+						<table class="laps" id="current_laps_{{ node.index }}">
+							<thead>
+							</thead>
+							<tbody>
+							</tbody>
+						</table>
+		
+						<div id="tuning-detail-{{node.index}}" class="tuning-detail mfp-hide popup">
+							<h2>{{ __('Tuning: Node') }} {{ node.index + 1 }}</h2>
+							<div class="popup-content">
+		
+								<div class="rssi-graph in-popup" data-node="{{ node.index }}">
+									<button class="pause_graph" data-node="{{ node.index }}">&#x23ef;&#xFE0E;<span class="screen-reader-text"> {{ __('Pause/Resume Graph') }}</span></button>
+								</div>
+								<div class="crossing crossing_flag_{{ node.index }}"><span>{{ __('Clear') }}</span></div>
+		
+								<div class="node-controls">
+									<div class="enter-exit-control">
+										<label for="set_enter_at_level_{{ node.index }}">{{ __('EnterAt') }}</label>
+										<input type="number" id="set_enter_at_level_{{ node.index }}" class="set_enter_at_level" data-node="{{ node.index }}" min="0" max="999">
+										<button class="cap_enter_at_btn" data-node_index="{{ node.index }}">{{ __('Capture') }}</button>
+									</div>
+		
+									<div class="enter-exit-control">
+										<label for="set_exit_at_level_{{ node.index }}">{{ __('ExitAt') }}</label>
+										<input type="number" id="set_exit_at_level_{{ node.index }}" class="set_exit_at_level" data-node="{{ node.index }}" min="0" max="999">
+										<button class="cap_exit_at_btn" data-node_index="{{ node.index }}">{{ __('Capture') }}</button>
+									</div>
+								</div>
+								<table>
+									<tr class="datarow">
+										<td>{{ __('RSSI') }}</td>
+										<td>
+											<span class="current_rssi_{{ node.index }}"></span>
+										</td>
+									</tr>
+									<tr class="datarow">
+										<td>{{ __('NodePeak') }}</td>
+										<td>
+											<span class="node_peak_rssi_{{ node.index }}"></span>
+										</td>
+									</tr>
+									<tr class="datarow">
+										<td>{{ __('NodeNadir') }}</td>
+										<td>
+											<span class="node_nadir_rssi_{{ node.index }}"></span>
+										</td>
+									</tr>
+									<tr class="datarow">
+										<td>{{ __('PassPeak') }}</td>
+										<td>
+											<span class="pass_peak_rssi_{{ node.index }}"></span>
+										</td>
+									</tr>
+									<tr class="datarow">
+										<td>{{ __('PassNadir') }}</td>
+										<td>
+											<span class="pass_nadir_rssi_{{ node.index }}"></span>
+										</td>
+									</tr>
+									<tr class="datarow">
+										<td>{{ __('PassCount') }}</td>
+										<td>
+											<span class="debug_pass_count_{{ node.index }}"></span>
+										</td>
+									</tr>
+								</table>
+								<div id="node_notice_{{ node.index }}"></div>
+							</div>
+						</div>
+					</div>
+					{% endfor %}
+					
+					
+				</div>
+	            
+	            
+	            
+            </div>
+            
         </div>
-    </div>        
-	{% endif %}
+    </div>   
+        
+</div>
+
+
+<br>
+
+<div class="row layout-top-spacing">
+
+	<div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
+	    
+                
+    </div>   
 
 </div>
 
 
 
 
-<br><br><br>
-
-
-
-<div id="iconsAccordion" class="accordion-icons">
-   
-  	
-  	
-  	
-  	
-
-  	
-  	
-  	
-
-  	
-
-  	
-  	
-  	<div class="card">
-        <div class="card-header" id="...">
-            <section class="mb-0 mt-0">
-                <div role="menu" class="collapsed" data-toggle="collapse" data-target="#iconAccordionSix" aria-expanded="true" aria-controls="iconAccordionSix">
-                    {{ __('Callouts') }}
-                </div>
-            </section>
-        </div>
-
-        <div id="iconAccordionSix" class="collapse" aria-labelledby="..." data-parent="#iconsAccordion">
-            <div class="card-body">
-                
-				<ol class="form callout-items">
-				</ol>
-		
-				<div class="control-set">
-					<button class="button" id="add_callout">{{ __('Add Callout') }}</button>
-				</div>
-		
-				<p class="form-note">
-					%HEAT% : {{ __('Current heat name') }}<br />
-					%PILOTS% : {{ __('Current pilot names') }}<br />
-					%FREQS% : {{ __('Frequencies with current pilot assignments') }}
-				</p>
-
-
-            </div>
-        </div>
-  	</div>
-  	
-  
 
 
 
 
- 	<div class="card">
-        <div class="card-header" id="...">
-            <section class="mb-0 mt-0">
-                <div role="menu" class="collapsed" data-toggle="collapse" data-target="#iconAccordionFive" aria-expanded="true" aria-controls="iconAccordionFive">
-                    {{ __('Status') }}
-                </div>
-            </section>
-        </div>
-
-        <div id="iconAccordionFive" class="collapse" aria-labelledby="..." data-parent="#iconsAccordion">
-            <div class="card-body">
-                <div id="cluster-status" class="control-set">
-				</div>
-				<div id="env-data-table" class="control-set">
-				</div>
-            </div>
-        </div>
-  	</div>
-  	
-  	
-
-  	
 
 <!-- Modal -->
-<div class="modal fade modal-xl" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<div class="modal fade" id="audioModal" tabindex="-1" role="dialog" aria-labelledby="audioModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="exampleModalLabel">Audio Settings</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                  <i class="fas fa-times"></i>
-                </button>
+            <div class="modal-header">                
+		        <h5 class="modal-title" id="exampleModalToggleLabel">{{ __('Audio Select') }}</h5>
+		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
 	            
@@ -2341,11 +2331,12 @@
              
             </div>
             <div class="modal-footer">
-                <button type="button" data-dismiss="modal" class="btn btn-primary">Close</button>
+                <button type="button" data-bs-dismiss="modal" class="btn btn-primary">Close</button>
             </div>
         </div>
     </div>
 </div>
+
 
 
 
