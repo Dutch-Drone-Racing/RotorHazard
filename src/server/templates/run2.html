@@ -1,4 +1,4 @@
-{% extends "layout_dashv2.html" %} {% block title %}{{ __('Run') }}{% endblock %}{% block head %}
+{% extends "layout_ui2.html" %} {% block title %}{{ __('Run') }}{% endblock %}{% block head %}
 
 <script type="text/javascript" charset="utf-8">
 	var data_dependencies = [
@@ -6,7 +6,6 @@
 		'language',
 		'node_data',
 		'frequency_data',
-		'heat_data',
 		'pilot_data',
 		'race_format',
 		'node_tuning',
@@ -23,18 +22,12 @@
 		'vrx_list'
 	];
 
-
-	var volume_logsl = new LogSlider({maxpos: 100, minval: 0.01, maxval: 1});
+	var volume_logsl = new LogSlider({maxpos: 100, minval: MIN_LOG_VOLUME, maxval: MAX_LOG_VOLUME});
 	var brightness_logsl = new LogSlider({maxpos: 25, minval: 5, maxval: 255});
 
 	var request_time;
 	var request_pi_time;
 	var resume_check = true;
-
-	var speakObjsQueue = [];
-	var checkSpeakQueueFlag = true;
-	const LEADER_FLAG_CHAR = 'L';
-	const WINNER_FLAG_CHAR = 'W';
 
 	function race_kickoff(msg) {
 		rotorhazard.timer.stopAll();
@@ -134,6 +127,7 @@
 
 		var heartbeatCounter = 0;
 		var current_laps = {};
+		var current_laps_reversed = false;
 
 		// set admin flag
 		rotorhazard.admin = true;
@@ -174,6 +168,7 @@
 		$('#display_lap_id').prop("checked", rotorhazard.display_lap_id);
 		$('#display_time_start').prop("checked", rotorhazard.display_time_start);
 		$('#display_time_first_pass').prop("checked", rotorhazard.display_time_first_pass);
+		$('#display_laps_reversed').prop("checked", rotorhazard.display_laps_reversed);
 
 		if ('{{ getOption('ledBrightness') }}' != 'False') {
 			$('#set_led_brightness').val(brightness_logsl.position( {{ getOption('ledBrightness') }} ));
@@ -343,14 +338,18 @@
 							rotorhazard.nodes[i].exit_at_level - 10,
 						));
 
+						if (!rotorhazard.nodes[i].graphing && rssiValue) {
+							rotorhazard.nodes[i].graphing = true;
+							rotorhazard.nodes[i].graph.options.maxValue = rssiValue + 100;
+							rotorhazard.nodes[i].graph.options.minValue = Math.max(0, rssiValue - 10);
+						}
+
 						if (rotorhazard.nodes[i].graphing) {
 							rotorhazard.nodes[i].series.append(new Date().getTime(), rssiValue);
-						} else {
-							if (rssiValue) {
-								rotorhazard.nodes[i].graphing = true;
-								rotorhazard.nodes[i].graph.options.maxValue = rssiValue + 100;
-								rotorhazard.nodes[i].graph.options.minValue = Math.max(0, rssiValue - 10);
-								rotorhazard.nodes[i].series.append(new Date().getTime(), rssiValue);
+							if (msg.crossing_flag[i]) {
+								rotorhazard.nodes[i].crossingSeries.append(new Date().getTime(), 500);
+							} else{
+								rotorhazard.nodes[i].crossingSeries.append(new Date().getTime(), -10);
 							}
 						}
 					}
@@ -373,20 +372,71 @@
 		socket.on('heat_data', function (msg) {
 			rotorhazard.heats = msg.heats;
 			$('#set_current_heat').empty();
-			for (var i in msg.heats) {
-				var heat = msg.heats[i];
 
-				if (heat.note) {
-					var heatname = heat.note;
-				} else {
-					var heatname = __('Heat') + ' ' + heat.heat_id;
+			// assemble heats by class
+			var heats_by_class = {}
+			var single_class = true;
+			for (var h in msg.heats) {
+				var heat = msg.heats[h];
+				if (!(heat.class_id in heats_by_class)) {
+					heats_by_class[heat.class_id] = [];
 				}
-				rotorhazard.heats[i].heatname = heatname;
+				heats_by_class[heat.class_id].push(heat)
+				if (heat.class_id != 0) {
+					single_class = false;
+				}
+			}
 
-				var opt = $('<option value="' + heat.heat_id + '" data-class="' + heat.class_id + '">');
+			// assemble optgroups
+			if (single_class) {
+				for (var h in msg.heats) {
+					var heat = msg.heats[h];
 
-				opt.html(heatname);
-				$('#set_current_heat').append(opt);
+					if (heat.note) {
+						var heatname = heat.note;
+					} else {
+						var heatname = __('Heat') + ' ' + heat.heat_id;
+					}
+
+					var opt = $('<option value="' + heat.heat_id + '" data-class="' + heat.class_id + '">');
+					opt.html(heatname);
+					$('#set_current_heat').append(opt);
+				}
+			} else {
+				for (var c in heats_by_class) {
+					var heat_list = heats_by_class[c]
+					var optgroup = $('<optgroup>');
+
+					optgroup.attr('label', __('Unclassified'));
+					optgroup.attr('data-id', 0);
+					for (var rc in msg.classes) {
+						if (c == msg.classes[rc].id) {
+							var class_data = msg.classes[rc]
+							optgroup.attr('label', class_data.name);
+							optgroup.attr('data-id', class_data.id);
+							break;
+						}
+					}
+
+					for (var h in heat_list) {
+						var heat = heat_list[h];
+
+						if (heat.note) {
+							var heatname = heat.note;
+						} else {
+							var heatname = __('Heat') + ' ' + heat.heat_id;
+						}
+
+						var opt = $('<option value="' + heat.heat_id + '" data-class="' + heat.class_id + '">');
+
+						opt.html(heatname);
+						optgroup.append(opt)
+					}
+					$('#set_current_heat').append(optgroup);
+				}
+
+				// move unclassified to end of list
+				$('#set_current_heat').append($('#set_current_heat optgroup[data-id="0"]'));
 			}
 
 			socket.emit('load_data', {'load_types': [
@@ -441,43 +491,104 @@
 		});
 
 		socket.on('current_laps', function (msg) {
-			current_laps = msg;
+			current_laps = msg.current;
+			current_laps_reversed = false;
 			show_current_laps();
 		});
 
 		function show_current_laps() {
-			$.each(current_laps.node_index, function (i, node_index) { // i is loop num, node_index is json object
+			$.each(current_laps.node_index, function (i, curnode_data) { // i is loop num, curnode_data is json object
 				$('#current_laps_' + i + ' tbody > tr').remove();
 
-				$.each(node_index.laps, function (j, lap) { // j is loop num, lap_id is json object
-					var lapTimeStamp = (lap.lap_time_stamp > 0) ? formatTimeMillis(lap.lap_time_stamp) : '';
+				if(rotorhazard.display_laps_reversed) {
+					if(!current_laps_reversed) {
+						curnode_data.laps.reverse();
+					}
+				}
+				else if(current_laps_reversed) {
+					curnode_data.laps.reverse();
+				}
 
-					var tr = $('<tr>')
-					if (lap.lap_number == 0) {
+				$.each(curnode_data.laps, function (j, lap) { // j is loop num, lap_id is json object
+					if(lap.splits) {
+						if(rotorhazard.display_laps_reversed) {
+							if(!current_laps_reversed && lap.splits.length > 1) {
+								lap.splits.laps.reverse();
+							}
+							$.each(lap.splits, function(k, split) {
+								if ((!curnode_data.finished_flag) || j > 0 ||
+												(split.split_time && split.split_time != '-') ||
+												split.split_speed) {  // don't show last split if empty and pilot finished
+									var split_display = split.split_time + ' ';
+									if (split.split_speed) {
+										split_display += '(' + split.split_speed + ')';
+									}
+									var split_tr = $('<tr>');
+									split_tr.addClass('lap_split');
+									if (rotorhazard.display_lap_id) {
+										var split_id = 'split ';
+										if (lap.splits.length > 1) {
+											split_id += (k+1);
+										}
+										split_tr.append($('<td>').text(split_id));
+									}
+									var split_time_td = $('<td colspan="'+local_colspan+'">').text(split_display);
+									split_tr.append(split_time_td);
+									split_tr.appendTo('#current_laps_' + i);
+								}
+							});
+						}
+						else if(current_laps_reversed && lap.splits.length > 1) {
+							lap.splits.laps.reverse();
+						}
+					}
+
+					var tr = $('<tr>');
+					var lap_num = lap.lap_number;
+					if (lap_num == 0) {
 						tr.addClass('lap_0');
 					}
 
 					var local_colspan = 2;
 					if(rotorhazard.display_lap_id) {
 						local_colspan = 1;
+						if(lap_num < 0) {
+							lap_num = ' ';
+						}
 						tr.append(
-							$('<td class="display_lap_number">').text(lap.lap_number)
+							$('<td class="display_lap_number">').text(lap_num)
 						);
 					}
-					time_td = $('<td colspan="'+local_colspan+'">').text(lap.lap_time + ' ').append(
+					time_td = $('<td colspan="'+local_colspan+'">').text(' ' + lap.lap_time + ' ').append(
 							$('<button class="delete_lap btn-danger" data-node="' + i + '" data-lap-index="' + lap.lap_index + '">&#215;</button>')
 							);
+					if(lap.late_lap) {
+						tr.addClass('late-lap');
+						time_td.prepend(
+								$('<button class="restore_deleted_lap" data-node="' + i + '" data-lap-index="' + lap.lap_index + '">+</button>'));
+					}
 					local_prepend = $('<span class="from_start">');
 
 					if(rotorhazard.display_time_first_pass) {
-						local_prepend.text(formatTimeMillis(lap.lap_time_stamp - node_index.laps[0].lap_time_stamp));
+						if(rotorhazard.display_laps_reversed) {
+							if(curnode_data.laps.length > 0) {
+								ts_val = lap.lap_time_stamp - curnode_data.laps[curnode_data.laps.length-1].lap_time_stamp;
+							}
+							else {
+								ts_val = 0;
+							}
+						}
+						else {
+							ts_val = lap.lap_time_stamp - curnode_data.laps[0].lap_time_stamp;
+						}
+						local_prepend.text(formatTimeMillis(ts_val, {{ getOption('timeFormat')|tojson }}));
 						if(rotorhazard.display_time_start){
 							local_prepend.append(" / ");
 						}
 					}
 
 					if(rotorhazard.display_time_start) {
-						local_prepend.append(formatTimeMillis(lap.lap_time_stamp));
+						local_prepend.append(formatTimeMillis(lap.lap_time_stamp, {{ getOption('timeFormat')|tojson }}));
 					}
 
 					time_td.prepend(local_prepend);
@@ -491,45 +602,54 @@
 					}
 					tr.appendTo('#current_laps_' + i);
 
-					$.each(lap.splits, function(k, split) {
-						var split_display = split.split_time + ' ';
-						if (split.split_speed) {
-							split_display += '(' + split.split_speed + ')';
-						}
-						var split_tr = $('<tr>');
-						split_tr.addClass('lap_split');
-						if (rotorhazard.display_lap_id) {
-							var split_id = 'split ';
-							if (lap.splits.length > 1) {
-								split_id += (k+1);
+					if(!rotorhazard.display_laps_reversed) {
+						$.each(lap.splits, function(k, split) {
+							if ((!curnode_data.finished_flag) || j < curnode_data.laps.length-1 ||
+													(split.split_time && split.split_time != '-') ||
+													split.split_speed) {  // don't show last split if empty and pilot finished
+								var split_display = split.split_time + ' ';
+								if (split.split_speed) {
+									split_display += '(' + split.split_speed + ')';
+								}
+								var split_tr = $('<tr>');
+								split_tr.addClass('lap_split');
+								if (rotorhazard.display_lap_id) {
+									var split_id = 'split ';
+									if (lap.splits.length > 1) {
+										split_id += (k+1);
+									}
+									split_tr.append($('<td>').text(split_id));
+								}
+								var split_time_td = $('<td colspan="'+local_colspan+'">').text(split_display);
+								split_tr.append(split_time_td);
+								split_tr.appendTo('#current_laps_' + i);
 							}
-							split_tr.append($('<td>').text(split_id));
-						}
-						var split_time_td = $('<td colspan="'+local_colspan+'">').text(split_display);
-						split_tr.append(split_time_td);
-						split_tr.appendTo('#current_laps_' + i);
-					});
+						});
+					}
 				});
 			});
+			current_laps_reversed = rotorhazard.display_laps_reversed;
 		}
 
 		socket.on('leaderboard', function (msg) {
-			leaderboard = msg.meta.primary_leaderboard;
+			var race = msg.current;
+
+			var heatname = __('Heat') + ' ' + race.heat;
+			if (race.heat_note)
+				heatname = race.heat_note;
+			$('.current_heat').html(heatname);
+
+			leaderboard_type = race.leaderboard.meta.primary_leaderboard;
 			$('#leaderboard').empty();
-			$('#leaderboard').append(build_leaderboard(msg[leaderboard], 'current', msg.meta));
-		});
+			$('#leaderboard').append(build_leaderboard(race.leaderboard[leaderboard_type], 'current', race.leaderboard.meta));
 
-		socket.on('team_leaderboard', function (msg) {
 			$('#team_leaderboard').empty();
-
-			if (msg && 'meta' in msg) {
-				team_leaderboard = msg.meta.primary_leaderboard;
-				$('#team_leaderboard').append(build_team_leaderboard(msg[team_leaderboard], team_leaderboard, msg.meta));
+			if (race.team_leaderboard && 'meta' in race.team_leaderboard) {
+				leaderboard_type = race.team_leaderboard.meta.primary_leaderboard;
+				$('#team_leaderboard').append(build_team_leaderboard(race.team_leaderboard[leaderboard_type], leaderboard_type, race.team_leaderboard.meta));
 			}
-		});
 
-		socket.on('race_status_message', function (msg) {
-			$('.race_status_message').html(msg.team_laps_str);
+			$('.race_status_message').html(race.status_msg);
 		});
 
 		socket.on('phonetic_data', function (msg) {
@@ -544,14 +664,14 @@
 				}
 
 				if (rotorhazard.voice_lap_count == 1 ||
-							(rotorhazard.voice_lap_count == 2 && (!msg.team_laps))) {
+							(rotorhazard.voice_lap_count == 2 && msg.lap && (!msg.team_name))) {
 					if (ttstext.length > 0)
 						ttstext += ", ";
 					ttstext += __l('Lap') + " " + msg.lap;
 				}
 
 				if (rotorhazard.voice_lap_time == 1 ||
-							(rotorhazard.voice_lap_time == 2 && (!msg.team_laps))) {
+							(rotorhazard.voice_lap_time == 2 && (!msg.team_name))) {
 					if (ttstext.length > 0)
 						ttstext += ", ";
 					ttstext += msg.phonetic;
@@ -593,8 +713,8 @@
 
 		socket.on('first_pass_registered', function (msg) {
 			if (!rotorhazard.beep_crossing_exited && rotorhazard.beep_on_first_pass_button) {
-				if( rotorhazard.use_mp3_tones){
-					sound_beep.play();
+				if (rotorhazard.use_mp3_tones) {
+					play_mp3_beep(sound_beep, rotorhazard.indicator_beep_volume);
 				}
 				else {
 					play_beep(35, node_tone[msg.node_index], rotorhazard.indicator_beep_volume, 'sawtooth', 0.02);
@@ -620,10 +740,21 @@
 			rotorhazard.current_heat = msg.current_heat;
 			$('#set_current_heat').val(msg.current_heat);
 
-			rotorhazard.current_pilots = msg.pilot_ids;
-			for (i = 0; i < msg.callsign.length; i++) {
-				$('.callsign_' + i).html(msg.callsign[i] ? msg.callsign[i] : 'None');
+			rotorhazard.current_heatNodes = msg.heatNodes;
+
+			for (var idx in msg.heatNodes) {
+				hn = msg.heatNodes[idx];
+				cs = $('.callsign_' + idx)
+				cs.html(hn.callsign ? hn.callsign : __('-None-'));
+
+				if (hn.activeColor) {
+					color = colorvalToHex(hn.activeColor)
+					cs
+						.css('background-color', color)
+						.css('color', contrastColor(color));
+				}
 			}
+
 			if (msg.heat_format) {
 				$('#set_race_format').val(msg.heat_format);
 				$('#set_race_format').prop('disabled', true);
@@ -770,6 +901,7 @@
 		});
 
 		$('button.pause_graph').click(function (event) {
+			var btn = $(this);
 			var node = rotorhazard.nodes[parseInt($(this).data('node'))]
 			if (node.graphPaused) {
 				node.graph.options.scaleSmoothing = 0.125;
@@ -779,6 +911,7 @@
 					fillStyle:'hsla(214, 53%, 60%, 0.4)'
 				});
 				node.graph.start();
+				btn.html(svg_asset.pause);
 			} else {
 				node.graph.stop();
 				node.graphPausedTime = new Date().getTime();
@@ -790,6 +923,7 @@
 					fillStyle:'hsla(214, 53%, 60%, 0.4)'
 				});
 				node.graph.render(node.canvas, node.graphPausedTime);
+				btn.html(svg_asset.play);
 			}
 			node.graphPaused = !node.graphPaused;
 		});
@@ -797,8 +931,8 @@
 		$('button.simulate_lap').click(function (event) {
 			// if(!$(this).prop('disabled')) {
 				if (rotorhazard.beep_manual_lap_button) {
-					if( rotorhazard.use_mp3_tones){
-						sound_beep.play();
+					if (rotorhazard.use_mp3_tones) {
+						play_mp3_beep(sound_beep, rotorhazard.indicator_beep_volume);
 					}
 					else {
 						play_beep(35, node_tone[$(this).data('node')], rotorhazard.indicator_beep_volume, 'sawtooth');
@@ -819,6 +953,15 @@
 				lap_index: parseInt($(this).data('lap-index')),
 			};
 			socket.emit('delete_lap', data);
+			return false;
+		});
+
+		$(document).on("click", ".restore_deleted_lap", function (event) { // Needed for buttons added after document load
+			var data = {
+				node: parseInt($(this).data('node')),
+				lap_index: parseInt($(this).data('lap-index')),
+			};
+			socket.emit('restore_deleted_lap', data);
 			return false;
 		});
 
@@ -1013,6 +1156,12 @@
 			show_current_laps();
 		});
 
+		$('#display_laps_reversed').change(function (event) {
+			rotorhazard.display_laps_reversed = $(this).prop('checked');
+			rotorhazard.saveData();
+			show_current_laps();
+		});
+
 		/* Race Format */
 
 		$('#schedule_race').click(function (event) {
@@ -1091,8 +1240,8 @@
 		socket.on('node_crossing_change', function (msg) {
 			if (msg.crossing_flag) {
 				if (rotorhazard.beep_crossing_entered)
-					if( rotorhazard.use_mp3_tones){
-						sound_enter.play();
+					if (rotorhazard.use_mp3_tones) {
+						play_mp3_beep(sound_enter, rotorhazard.indicator_beep_volume);
 					}
 					else {
 						play_beep(25, node_tone[msg.node_index], rotorhazard.indicator_beep_volume, 'square');
@@ -1100,8 +1249,8 @@
 			}
 			else {
 				if (rotorhazard.beep_crossing_exited) {
-						if( rotorhazard.use_mp3_tones){
-							sound_exit.play();
+						if (rotorhazard.use_mp3_tones) {
+							play_mp3_beep(sound_exit, rotorhazard.indicator_beep_volume);
 						}
 						else {
 							play_beep(35, node_tone[msg.node_index], rotorhazard.indicator_beep_volume, 'sawtooth', 0.02);
@@ -1116,8 +1265,8 @@
 		socket.on('cluster_connect_change', function (msg) {
 			if (rotorhazard.beep_cluster_connect) {
 				if (msg.connect_flag) {
-					if( rotorhazard.use_mp3_tones){
-						sound_cconnect.play();
+					if (rotorhazard.use_mp3_tones) {
+						play_mp3_beep(sound_cconnect, rotorhazard.indicator_beep_volume);
 					}
 					else {
 						play_beep(120, 225, rotorhazard.indicator_beep_volume, 'square');
@@ -1127,8 +1276,8 @@
 					}
 				}
 				else {
-					if( rotorhazard.use_mp3_tones){
-						sound_cdisconnect.play();
+					if (rotorhazard.use_mp3_tones) {
+						play_mp3_beep(sound_cdisconnect, rotorhazard.indicator_beep_volume);
 					}
 					else {
 						play_beep(80, 200, rotorhazard.indicator_beep_volume, 'square');
@@ -1236,9 +1385,9 @@
 		/* LED Controls */
 
 		socket.on('led_effects', function (msg) {
-			var led_html = $('<div class="form-floating">');
+			var led_html = $('<div class="control-set">');
 
-			var led_select = $('<select class="form-select" id="led-effects-select"></select>');
+			var led_select = $('<select id="led-effects-select"></select>');
 
 			const effects = msg.effects.slice().sort((a, b) => (a.label > b.label) ? 1 : -1);
 
@@ -1250,19 +1399,22 @@
 				led_select.append(led_select_option);
 			}
 
-			
+			led_html.append($('<label for="led-effects">' + __('Effect') + '</label>'));
 			led_html.append(' ');
 			led_html.append(led_select);
-			led_html.append($('<label for="led-effects-select">Effect</label>'));
-			led_html.append('<br>');
-			led_html.append($('<button class="btn btn-primary btn-sm" id="use-led-effect">' + __('Go') + '</button>'));
+			led_html.append(' ');
+			led_html.append('<label for="set_led_color" class="screen-reader-text">' + __('LED Color') + '</label>');
+			led_html.append('<button id="set_led_color" class="color-picker" style="background-color: #ff6a00"/>');
+			led_html.append(' ');
+			led_html.append($('<button id="use-led-effect">' + __('Go') + '</button>'));
 
-			$('#LED-effects').append(led_html);
+			$('#LED-effects').html(led_html);
 		});
 
 		$(document).on('click', '#use-led-effect', function (event) {
 			var data = {
-				effect: $('#led-effects-select').val()
+				effect: $('#led-effects-select').val(),
+				color: rgbtoHex($('#set_led_color').css('background-color'))
 			};
 			socket.emit('use_led_effect', data);
 		});
@@ -1278,6 +1430,14 @@
 				return false;
 		});
 
+		$('button.LED-off').click(function (event) {
+				var data = {
+					off: true
+				};
+				socket.emit('LED_solid', data);
+				return false;
+		});
+
 		$('#set_led_color').change(function (event) {
 				var colors = convertColor($(this).val());
 				var data = {
@@ -1288,6 +1448,15 @@
 				socket.emit('LED_solid', data);
 				return false;
 		});
+
+		$(document).on("click", '#set_led_color', function (event) {
+			src_hexcolor = rgbtoHex($(event.target).css('background-color'));
+
+			color_picker(src_hexcolor, function(h, s, l){
+				hexcolor = hslToHex(h, s, l);
+				$(event.target).css('background-color', hexcolor);
+			})
+		})
 
 		$('#set_led_brightness').on('input', function (event) {
 			var val = brightness_logsl.value($(this).val());
@@ -1389,8 +1558,9 @@
 			// %PILOTS% : Current pilot names
 			var pilots = '';
 			var first = true;
-			for (i in rotorhazard.current_pilots) {
-				pilot = rotorhazard.current_pilots[i];
+
+			for (i in rotorhazard.current_heatNodes) {
+				pilot = rotorhazard.current_heatNodes[i].pilot_id;
 				if (pilot && rotorhazard.nodes[i].fObj.frequency) {
 					if (!first) {
 						pilots += ', ';
@@ -1414,11 +1584,11 @@
 			// %FREQS% : Frequencies with current pilot assignments
 			var pilots = '';
 			var first = true;
-			for (i in rotorhazard.current_pilots) {
-				pilot = rotorhazard.current_pilots[i];
+			for (i in rotorhazard.current_heatNodes) {
+				pilot = rotorhazard.current_heatNodes[i].pilot_id;
 				if (pilot && rotorhazard.nodes[i].fObj.frequency) {
 					if (!first) {
-						pilots += ', ';
+						pilots += '. ';
 					}
 					for (var p in rotorhazard.pilot_data) {
 						pdata = rotorhazard.pilot_data[p];
@@ -1491,6 +1661,149 @@
 					}
 				}
 			}
+		});
+
+		/* positional RSSI adjustment */
+		var canDrag = false;
+		var isDragging = false;
+		var startingEnter = false;
+		var startingExit = false;
+		var startingY = false;
+		var adjustEnter = true;
+		var isTouchEvent = false;
+
+		function mapRange(val, start, end){
+			return val * (end - start) / 1 + start;
+		}
+
+		function handleGraphInteractionStart(evt, node) {
+			var offset = $(evt.target).offset()
+			if (evt.targetTouches) {
+				var y = (evt.targetTouches[0].pageY - offset.top) / evt.target.offsetHeight;
+			} else {
+				var y = (evt.pageY - offset.top) / evt.target.offsetHeight;
+			}
+
+			var rssi = parseInt(mapRange(y, rotorhazard.nodes[node].graph.options.maxValue, rotorhazard.nodes[node].graph.options.minValue));
+
+			startingEnter = parseInt($('#set_enter_at_level_' + node).val());
+			startingExit = parseInt($('#set_exit_at_level_' + node).val());
+			startingY = y;
+
+			var midPoint = (startingEnter + startingExit) >> 1;
+			adjustEnter = (rssi >= midPoint);
+		}
+
+		function handleGraphInteractionMove(evt, node) {
+			// user drags on graph
+			var offset = $(evt.target).offset()
+			if (evt.targetTouches) {
+				var y = (evt.targetTouches[0].pageY - offset.top) / evt.target.offsetHeight;
+			} else {
+				var y = (evt.pageY - offset.top) / evt.target.offsetHeight;
+			}
+
+			if (Math.abs(y - startingY) > 0.01 || isDragging) { // prevent accidental drag
+				isDragging = true;
+
+				var rssi = parseInt(mapRange(y, rotorhazard.nodes[node].graph.options.maxValue, rotorhazard.nodes[node].graph.options.minValue));
+
+				var enter_control = $('#set_enter_at_level_' + node);
+				var exit_control = $('#set_exit_at_level_' + node);
+
+				if (adjustEnter) {
+					enter_control.val(rssi);
+					enter_control.trigger('change');
+					if (rssi < parseInt(exit_control.val()) + 2)  {
+						exit_control.val(rssi - 2);
+						exit_control.trigger('change');
+					}
+				} else {
+					exit_control.val(rssi);
+					exit_control.trigger('change');
+					if (rssi > parseInt(enter_control.val()) - 2)  {
+						enter_control.val(rssi + 2);
+						enter_control.trigger('change');
+					}
+				}
+			}
+		}
+
+		// mouse handlers
+		$('.tuning-detail .rssi-graph').on('mousedown', function(evt){
+			node = $(this).data('node')
+			if (!isTouchEvent) {
+				canDrag = true;
+				handleGraphInteractionStart(evt, node);
+			}
+		})
+		$('.tuning-detail .rssi-graph').on('mousemove', function(evt){
+			node = $(this).data('node')
+			if (!isTouchEvent) {
+				if (canDrag) {
+					handleGraphInteractionMove(evt, node);
+					$('#recalc').trigger('click');
+				}
+			}
+		})
+		$('.tuning-detail .rssi-graph').on('mouseup', function(evt){
+			node = $(this).data('node')
+			if (!isTouchEvent) {
+				canDrag = false;
+				isDragging = false;
+			}
+			isTouchEvent = false;
+		})
+		$('.tuning-detail .rssi-graph').on('mouseout', function(evt){
+			node = $(this).data('node')
+			if (!isTouchEvent) {
+				if (isDragging) {
+					$('#set_enter_at_level_' + node).val(startingEnter);
+					$('#set_enter_at_level_' + node).trigger('change');
+					$('#set_exit_at_level_' + node).val(startingExit);
+					$('#set_exit_at_level_' + node).trigger('change');
+				}
+			}
+			isTouchEvent = false;
+		});
+		$(document).on('mouseup', function(){
+			if (!isTouchEvent) {
+				canDrag = false;
+				isDragging = false;
+			}
+			isTouchEvent = false;
+		});
+
+		// touch handlers
+		$('.tuning-detail .rssi-graph').on('touchstart', function(evt) {
+			evt.preventDefault();
+			node = $(this).data('node')
+			if (evt.targetTouches.length == 1) { // pause if multi-touch detected
+				handleGraphInteractionStart(evt, node);
+				handleGraphInteractionMove(evt, node);
+			}
+			isTouchEvent = true;
+		})
+		$('.tuning-detail .rssi-graph').on('touchmove', function(evt) {
+			evt.preventDefault();
+			node = $(this).data('node')
+			if (evt.targetTouches.length == 1) { // pause if multi-touch detected
+				handleGraphInteractionMove(evt, node);
+			}
+		})
+		$('.tuning-detail .rssi-graph').on('touchend', function(evt){
+			evt.preventDefault();
+			node = $(this).data('node')
+			if (evt.targetTouches && evt.targetTouches.length == 0) { // end only when all touches end
+			}
+		})
+		$('.tuning-detail .rssi-graph').on('touchCancel', function(evt) {
+			evt.preventDefault();
+			$('#set_enter_at_level_' + node).val(startingEnter);
+			$('#set_enter_at_level_' + node).trigger('change');
+			$('#set_exit_at_level_' + node).val(startingExit);
+			$('#set_exit_at_level_' + node).trigger('change');
+			isTouchEvent = true;
 		});
 
 		$(document).on('keyup', function(e) {
@@ -1659,72 +1972,6 @@
 		});
 	});
 
-	function playLeaderTone() {
-		if (rotorhazard.use_mp3_tones) {
-			sound_leader.play();
-		}
-		else {
-			play_beep(75, 1200, rotorhazard.indicator_beep_volume, 'square');
-			setTimeout(function(tone){
-				play_beep(100, 1800, rotorhazard.indicator_beep_volume, 'square');
-			}, 75, 0);
-		}
-	}
-
-	function playWinnerTone() {
-		if (rotorhazard.use_mp3_tones) {
-			sound_winner.play();
-		}
-		else {
-			play_beep(50, 1200, rotorhazard.indicator_beep_volume, 'square');
-			setTimeout(function(tone) {
-				play_beep(75, 1800, rotorhazard.indicator_beep_volume, 'square');
-			}, 50, 0);
-			setTimeout(function(tone) {
-				play_beep(50, 1200, rotorhazard.indicator_beep_volume, 'square');
-			}, 125, 0);
-			setTimeout(function(tone) {
-				play_beep(75, 1800, rotorhazard.indicator_beep_volume, 'square');
-			}, 175, 0);
-			setTimeout(function(tone) {
-				play_beep(50, 1200, rotorhazard.indicator_beep_volume, 'square');
-			}, 250, 0);
-			setTimeout(function(tone) {
-				play_beep(100, 1800, rotorhazard.indicator_beep_volume, 'square');
-			}, 300, 0);
-		}
-	}
-
-	function doSpeak(obj) {
-		if (obj.startsWith(LEADER_FLAG_CHAR)) {
-			obj = obj.substring(1);
-			if (rotorhazard.beep_race_leader_lap) {
-				playLeaderTone();
-			}
-		}
-		else if (obj.startsWith(WINNER_FLAG_CHAR)) {
-			obj = obj.substring(1);
-			if (rotorhazard.beep_race_winner_declared) {
-				playWinnerTone();
-			}
-		}
-		if (obj.length > 0) {
-			$(obj).articulate('setVoice','name', rotorhazard.voice_language).articulate('speak');
-			return true;
-		}
-		return false;
-	};
-
-	function speak(obj, priority) {
-		if (typeof(priority)=='undefined')
-			priority = false;
-
-		if (priority) {
-			speakObjsQueue.unshift(obj);
-		} else {
-			speakObjsQueue.push(obj);
-		}
-	};
 </script>
 {% endblock %} {% block content %}
 

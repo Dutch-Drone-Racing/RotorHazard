@@ -1,7 +1,5 @@
 {% extends "layout-basic.html" %} {% block title %}{{ __('Stream') }}: {{ __('Seat') }}{% endblock %}{% block head %}
-<link rel="stylesheet" href="/static/ddr/assets/css/streamnode.css?{{ serverInfo['release_version'] | urlencode }}"></link>
-
-
+<link rel="stylesheet" href="/static/streamnode.css?{{ serverInfo['release_version'] | urlencode }}"></link>
 
 <script type="text/javascript" charset="utf-8">
 	var data_dependencies = [
@@ -10,6 +8,7 @@
 		'race_format',
 		'leaderboard',
 		'current_laps',
+		'current_heat'
 	];
 
 	rotorhazard.show_messages = false;
@@ -24,8 +23,32 @@
 			}
 		});
 
+		/*
+		socket.on('current_heat', function (msg) {
+			for (var idx in msg.heatNodes) {
+				hn = msg.heatNodes[streamnode];
+				if (hn.activeColor) {
+					color = colorvalToHex(hn.activeColor)
+					$('html').css('--pilot_color', color);
+					$('html').css('--contrast_pilot_color', contrastColor(color));
+					$('html').css('--position_foreground_color', color);
+					$('html').css('--position_background_color', contrastColor(color));
+					$('html').css('--fast_lap_color', color);
+					$('html').css('--contrast_fast_lap_color', contrastColor(color));
+				} else {
+					$('html').css('--pilot_color', 'hsl(var(--hue_0), var(--sat_0), var(--lum_0_low))');
+					$('html').css('--contrast_pilot_color', 'var(--contrast_0_low)');
+					$('html').css('--position_background_color', 'hsl(var(--hue_1), var(--sat_1), var(--lum_1_high))');
+					$('html').css('--position_foreground_color', 'var(--contrast_1_high)');
+					$('html').css('--fast_lap_color', 'hsl(var(--hue_1), var(--sat_1), var(--lum_1_high))');
+					$('html').css('--contrast_fast_lap_color', 'var(--contrast_1_high)');
+				}
+			}
+		});
+		*/
+
 		socket.on('current_laps', function (msg) {
-			current_laps = msg;
+			current_laps = msg.current;
 			show_current_laps();
 		});
 
@@ -58,8 +81,6 @@
 					lapTime += ')';
 				}
 
-				var lapTimeStamp = (lap.lap_time_stamp > 0) ? formatTimeMillis(lap.lap_time_stamp) : '';
-
 				tr = $('<tr>')
 				if (lap.lap_number == 0) {
 					tr.addClass('lap_0');
@@ -90,8 +111,10 @@
 		}
 
 		socket.on('leaderboard', function (msg) {
-			primary_leaderboard = msg.meta.primary_leaderboard;
-			leaderboard = msg[primary_leaderboard];
+			var race = msg.current.leaderboard;
+
+			primary_leaderboard = race.meta.primary_leaderboard;
+			leaderboard = race[primary_leaderboard];
 
 			found_streamnode = false;
 
@@ -137,22 +160,12 @@
 
 </script>
 {% endblock %} {% block content %}
-
-
-<div class="pilot_header">
-	<div class="pilot_position" id="position">
+<main class="page-streamnode">
+	<div id="position"></div>
+	<div id="pilot-info">
+		<div id="callsign"></div>
+		<div id="rank_stat"></div>
 	</div>
-	<div class="pilot_callsign" id="callsign">		
-	</div>
-	<div class="pilot_rankstat" id="rank_stat">
-	</div>	
-	<div class="current_laps" id="current_laps"></div>
-	
-</div>
-
-
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Teko:wght@300;500&display=swap" rel="stylesheet">
+	<div id="current_laps"></div>
+</main>
 {% endblock %}

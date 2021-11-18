@@ -28,8 +28,7 @@
 		'exporter_list',
 	];
 
-	var logsl = new LogSlider({maxpos: 12, minval: 0.0001, maxval: 1});
-	var volume_logsl = new LogSlider({maxpos: 100, minval: 0.01, maxval: 1});
+	var volume_logsl = new LogSlider({maxpos: 100, minval: MIN_LOG_VOLUME, maxval: MAX_LOG_VOLUME});
 	var brightness_logsl = new LogSlider({maxpos: 25, minval: 5, maxval: 255});
 	var heat_to_unlock = null;
 	var class_to_unlock = null;
@@ -110,6 +109,10 @@
 
 		if ('{{ getOption('nextHeatBehavior') }}' == '1') {
 			$('#set_next_heat_behavior').val(1);
+		}
+
+		if (parseInt('{{ getOption('ledColorMode') }}')) {
+			$('#set_ledColorMode').val('{{ getOption('ledColorMode') }}');
 		}
 
 		$('#unlock_race_format_button').html(svg_asset.lock);
@@ -200,14 +203,18 @@
 						rotorhazard.nodes[i].exit_at_level - 10,
 					));
 
+					if (!rotorhazard.nodes[i].graphing && rssiValue) {
+						rotorhazard.nodes[i].graphing = true;
+						rotorhazard.nodes[i].graph.options.maxValue = rssiValue + 100;
+						rotorhazard.nodes[i].graph.options.minValue = Math.max(0, rssiValue - 10);
+					}
+
 					if (rotorhazard.nodes[i].graphing) {
 						rotorhazard.nodes[i].series.append(new Date().getTime(), rssiValue);
-					} else {
-						if (rssiValue) {
-							rotorhazard.nodes[i].graphing = true;
-							rotorhazard.nodes[i].graph.options.maxValue = rssiValue + 100;
-							rotorhazard.nodes[i].graph.options.minValue = Math.max(0, rssiValue - 10);
-							rotorhazard.nodes[i].series.append(new Date().getTime(), rssiValue);
+						if (msg.crossing_flag[i]) {
+							rotorhazard.nodes[i].crossingSeries.append(new Date().getTime(), 500);
+						} else{
+							rotorhazard.nodes[i].crossingSeries.append(new Date().getTime(), -10);
 						}
 					}
 				}
@@ -617,6 +624,7 @@
 		});
 
 		$('button.pause_graph').click(function (event) {
+			var btn = $(this);
 			var node = rotorhazard.nodes[parseInt($(this).data('node'))]
 			if (node.graphPaused) {
 				node.graph.options.scaleSmoothing = 0.125;
@@ -626,6 +634,7 @@
 					fillStyle:'hsla(214, 53%, 60%, 0.4)'
 				});
 				node.graph.start();
+				btn.html(svg_asset.pause);
 			} else {
 				node.graph.stop();
 				node.graphPausedTime = new Date().getTime();
@@ -637,6 +646,7 @@
 					fillStyle:'hsla(214, 53%, 60%, 0.4)'
 				});
 				node.graph.render(node.canvas, node.graphPausedTime);
+				btn.html(svg_asset.play);
 			}
 			node.graphPaused = !node.graphPaused;
 		});
@@ -1051,15 +1061,18 @@
 					var el = $('<li data-id="' + pilot.pilot_id + '">');
 					el.append('<label for="name_' + pilot.pilot_id + '" class="screen-reader-text">' + __('Name') + '</label>');
 					el.append('<input type="text" class="set_pilot_name" id="name_' + pilot.pilot_id + '" data-pilot_id="' + pilot.pilot_id + '" value="' + pilot.name + '" placeholder="' + __('Name') +'">');
+					if ('color' in pilot) {
+						el.append('<label for="color_' + pilot.pilot_id + '" class="screen-reader-text">' + __('Color') + '</label>');
+						el.append('<button class="set_pilot_color color-picker" id="color_' + pilot.pilot_id + '" data-pilot_id="' + pilot.pilot_id + '" data-color="' + pilot.color + '" style="background-color:' + pilot.color + '">');
+					}
 					el.append('<label for="callsign_' + pilot.pilot_id + '" class="screen-reader-text">' + __('Callsign') + '</label>');
-					el.append('<input type="text" class="set_pilot_callsign" id="callsign_' + pilot.pilot_id + '" data-pilot_id="' + pilot.pilot_id + '" value="' + pilot.callsign + '" placeholder="' + __('Callsign') +'">');
+					el.append('<input type="text" class="callsign set_pilot_callsign" id="callsign_' + pilot.pilot_id + '" data-pilot_id="' + pilot.pilot_id + '" value="' + pilot.callsign + '" placeholder="' + __('Callsign') +'">');
 					el.append('<label for="phonetic_' + pilot.pilot_id + '" class="screen-reader-text">' + __('Phonetic') +'</label>');
 					var phonetic = $('<div class="phonetic">');
 					phonetic.append('<input type="text" class="set_pilot_phonetic" id="phonetic_' + pilot.pilot_id + '" data-pilot_id="' + pilot.pilot_id + '" value="' + pilot.phonetic + '" placeholder="' + __('Phonetic') + '">');
 					phonetic.append('<button class="speak_pilot" data-pilot_id="' + pilot.pilot_id + '">&#9658;&#65038; <span class="screen-reader-text">' + __('Play') + '</span></button>');
 					el.append(phonetic);
 					el.append('<div class="pilot-team"><label for="set_pilot_team_' + pilot.pilot_id + '">' + __('Team') + '</label><select class="set_pilot_team" id="set_pilot_team_' + pilot.pilot_id + '" data-pilot_id="' + pilot.pilot_id + '">' + pilot.team_options + '</select></div>');
-
 					if (!pilot.locked) {
 						el.append('<button class="delete_pilot btn-danger" data-id="' + pilot.pilot_id + '" title="Delete Pilot ' + pilot.callsign + '">&#215;</button>');
 					}
@@ -1109,6 +1122,21 @@
 			socket.emit('alter_pilot', data);
 		})
 
+		$(document).on("click", '.set_pilot_color', function (event) {
+			pilot_id = parseInt($(event.target).data('pilot_id'));
+			src_hexcolor = $(event.target).data('color');
+
+			color_picker(src_hexcolor, function(h, s, l){
+				hexcolor = hslToHex(h, s, l)
+				var data = {
+					pilot_id: pilot_id,
+					color: hexcolor
+				};
+				socket.emit('alter_pilot', data);
+				$('#color_' + pilot_id).data('color', hexcolor).css('background-color', hexcolor);
+			})
+		})
+
 		$(document).on("change", '.set_pilot_team', function (event) {
 			var data = {
 				pilot_id: parseInt($(this).data('pilot_id')),
@@ -1138,7 +1166,7 @@
 			if (phonetic)
 				ttstext = phonetic;
 
-			speak('<div class="speech">' + ttstext + '</div>');
+			doSpeak('<div class="speech">' + ttstext + '</div>');
 			return false;
 		});
 
@@ -1311,7 +1339,7 @@
 		});
 
 		$('#play_voice_test').click(function (event) {
-			speak('<div class="speech">' + $('#voice_test_text').val() + '</div>');
+			doSpeak('<div class="speech">' + $('#voice_test_text').val() + '</div>');
 			return false;
 		});
 
@@ -1681,8 +1709,8 @@
 		socket.on('node_crossing_change', function (msg) {
 			if (msg.crossing_flag) {
 				if (rotorhazard.beep_crossing_entered) {
-					if( rotorhazard.use_mp3_tones){
-						sound_enter.play();
+					if (rotorhazard.use_mp3_tones) {
+						play_mp3_beep(sound_enter, rotorhazard.indicator_beep_volume);
 					}
 					else {
 						play_beep(25, node_tone[msg.node_index], rotorhazard.indicator_beep_volume, 'square');
@@ -1691,8 +1719,8 @@
 			}
 			else {
 				if (rotorhazard.beep_crossing_exited) {
-					if( rotorhazard.use_mp3_tones){
-						sound_exit.play();
+					if (rotorhazard.use_mp3_tones) {
+						play_mp3_beep(sound_exit, rotorhazard.indicator_beep_volume);
 					}
 					else {
 						play_beep(35, node_tone[msg.node_index], rotorhazard.indicator_beep_volume, 'sawtooth', 0.02);
@@ -1707,8 +1735,8 @@
 		socket.on('cluster_connect_change', function (msg) {
 			if (rotorhazard.beep_cluster_connect) {
 				if (msg.connect_flag) {
-					if( rotorhazard.use_mp3_tones){
-						sound_cconnect.play();
+					if (rotorhazard.use_mp3_tones) {
+						play_mp3_beep(sound_cconnect, rotorhazard.indicator_beep_volume);
 					}
 					else {
 						play_beep(120, 225, rotorhazard.indicator_beep_volume, 'square');
@@ -1718,8 +1746,8 @@
 					}
 				}
 				else {
-					if( rotorhazard.use_mp3_tones){
-						sound_cdisconnect.play();
+					if (rotorhazard.use_mp3_tones) {
+						play_mp3_beep(sound_cdisconnect, rotorhazard.indicator_beep_volume);
 					}
 					else {
 						play_beep(80, 200, rotorhazard.indicator_beep_volume, 'square');
@@ -1848,14 +1876,18 @@
 			led_html.append(' ');
 			led_html.append(led_select);
 			led_html.append(' ');
+			led_html.append('<label for="set_led_color" class="screen-reader-text">' + __('LED Color') + '</label>');
+			led_html.append('<button id="set_led_color" class="color-picker" style="background-color: #ff6a00"/>');
+			led_html.append(' ');
 			led_html.append($('<button id="use-led-effect">' + __('Go') + '</button>'));
 
-			$('#LED-effects').append(led_html);
+			$('#LED-effects').html(led_html);
 		});
 
 		$(document).on('click', '#use-led-effect', function (event) {
 			var data = {
-				effect: $('#led-effects-select').val()
+				effect: $('#led-effects-select').val(),
+				color: rgbtoHex($('#set_led_color').css('background-color'))
 			};
 			socket.emit('use_led_effect', data);
 		});
@@ -1871,16 +1903,22 @@
 				return false;
 		});
 
-		$('#set_led_color').change(function (event) {
-				var colors = convertColor($(this).val());
+		$('button.LED-off').click(function (event) {
 				var data = {
-					red: colors.r,
-					green: colors.g,
-					blue: colors.b,
+					off: true
 				};
 				socket.emit('LED_solid', data);
 				return false;
 		});
+
+		$(document).on("click", '#set_led_color', function (event) {
+			src_hexcolor = rgbtoHex($(event.target).css('background-color'));
+
+			color_picker(src_hexcolor, function(h, s, l){
+				hexcolor = hslToHex(h, s, l);
+				$(event.target).css('background-color', hexcolor);
+			})
+		})
 
 		socket.on('led_effect_setup_data', function (msg) {
 			var led_html = $('<ol class="form">');
@@ -1914,7 +1952,7 @@
 				led_html.append(led_event_block);
 			}
 
-			$('#LED-effect-setup').append(led_html);
+			$('#LED-effect-setup').html(led_html);
 		});
 
 		$(document).on('change', '.led-event-select', function(event) {
@@ -1938,21 +1976,154 @@
 			};
 			socket.emit('LED_brightness', data);
 		});
+
+		/* positional RSSI adjustment */
+		var canDrag = false;
+		var isDragging = false;
+		var startingEnter = false;
+		var startingExit = false;
+		var startingY = false;
+		var adjustEnter = true;
+		var isTouchEvent = false;
+
+		function mapRange(val, start, end){
+			return val * (end - start) / 1 + start;
+		}
+
+		function handleGraphInteractionStart(evt, node) {
+			var offset = $(evt.target).offset()
+			if (evt.targetTouches) {
+				var y = (evt.targetTouches[0].pageY - offset.top) / evt.target.offsetHeight;
+			} else {
+				var y = (evt.pageY - offset.top) / evt.target.offsetHeight;
+			}
+
+			var rssi = parseInt(mapRange(y, rotorhazard.nodes[node].graph.options.maxValue, rotorhazard.nodes[node].graph.options.minValue));
+
+			startingEnter = parseInt($('#set_enter_at_level_' + node).val());
+			startingExit = parseInt($('#set_exit_at_level_' + node).val());
+			startingY = y;
+
+			var midPoint = (startingEnter + startingExit) >> 1;
+			adjustEnter = (rssi >= midPoint);
+		}
+
+		function handleGraphInteractionMove(evt, node) {
+			// user drags on graph
+			var offset = $(evt.target).offset()
+			if (evt.targetTouches) {
+				var y = (evt.targetTouches[0].pageY - offset.top) / evt.target.offsetHeight;
+			} else {
+				var y = (evt.pageY - offset.top) / evt.target.offsetHeight;
+			}
+
+			if (Math.abs(y - startingY) > 0.01 || isDragging) { // prevent accidental drag
+				isDragging = true;
+
+				var rssi = parseInt(mapRange(y, rotorhazard.nodes[node].graph.options.maxValue, rotorhazard.nodes[node].graph.options.minValue));
+
+				var enter_control = $('#set_enter_at_level_' + node);
+				var exit_control = $('#set_exit_at_level_' + node);
+
+				if (adjustEnter) {
+					enter_control.val(rssi);
+					enter_control.trigger('change');
+					if (rssi < parseInt(exit_control.val()) + 2)  {
+						exit_control.val(rssi - 2);
+						exit_control.trigger('change');
+					}
+				} else {
+					exit_control.val(rssi);
+					exit_control.trigger('change');
+					if (rssi > parseInt(enter_control.val()) - 2)  {
+						enter_control.val(rssi + 2);
+						enter_control.trigger('change');
+					}
+				}
+			}
+		}
+
+		// mouse handlers
+		$('.rssi-graph').on('mousedown', function(evt){
+			node = $(this).data('node')
+			if (!isTouchEvent) {
+				canDrag = true;
+				handleGraphInteractionStart(evt, node);
+			}
+		})
+		$('.rssi-graph').on('mousemove', function(evt){
+			node = $(this).data('node')
+			if (!isTouchEvent) {
+				if (canDrag) {
+					handleGraphInteractionMove(evt, node);
+					$('#recalc').trigger('click');
+				}
+			}
+		})
+		$('.rssi-graph').on('mouseup', function(evt){
+			node = $(this).data('node')
+			if (!isTouchEvent) {
+				canDrag = false;
+				isDragging = false;
+			}
+			isTouchEvent = false;
+		})
+		$('.rssi-graph').on('mouseout', function(evt){
+			node = $(this).data('node')
+			if (!isTouchEvent) {
+				if (isDragging) {
+					$('#set_enter_at_level_' + node).val(startingEnter);
+					$('#set_enter_at_level_' + node).trigger('change');
+					$('#set_exit_at_level_' + node).val(startingExit);
+					$('#set_exit_at_level_' + node).trigger('change');
+				}
+			}
+			isTouchEvent = false;
+		});
+		$(document).on('mouseup', function(){
+			if (!isTouchEvent) {
+				canDrag = false;
+				isDragging = false;
+			}
+			isTouchEvent = false;
+		});
+
+		// touch handlers
+		$('.rssi-graph').on('touchstart', function(evt) {
+			evt.preventDefault();
+			node = $(this).data('node')
+			if (evt.targetTouches.length == 1) { // pause if multi-touch detected
+				handleGraphInteractionStart(evt, node);
+				handleGraphInteractionMove(evt, node);
+			}
+			isTouchEvent = true;
+		})
+		$('.rssi-graph').on('touchmove', function(evt) {
+			evt.preventDefault();
+			node = $(this).data('node')
+			if (evt.targetTouches.length == 1) { // pause if multi-touch detected
+				handleGraphInteractionMove(evt, node);
+			}
+		})
+		$('.rssi-graph').on('touchend', function(evt){
+			evt.preventDefault();
+			node = $(this).data('node')
+			if (evt.targetTouches && evt.targetTouches.length == 0) { // end only when all touches end
+			}
+		})
+		$('.rssi-graph').on('touchCancel', function(evt) {
+			evt.preventDefault();
+			$('#set_enter_at_level_' + node).val(startingEnter);
+			$('#set_enter_at_level_' + node).trigger('change');
+			$('#set_exit_at_level_' + node).val(startingExit);
+			$('#set_exit_at_level_' + node).trigger('change');
+			isTouchEvent = true;
+		});
 	});
 
-	function speak(obj) {
-		$(obj).articulate('setVoice','name', rotorhazard.voice_language).articulate('speak');
-	};
-	
-	
 </script>
-
-
-
-
-
 {% endblock %} {% block content %}
-
+<main class="page-settings">
 
 {% if server_messages %}
 	<div class="server-messages">
@@ -1962,992 +2133,648 @@
 	</div>
 {% endif %}
 
-
-
-<div class="row layout-top-spacing">
-
-    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-12 col-12">
-	    
-        <div class="statbox widget box box-shadow">
-            <div class="widget-header">                                      
-                <h4>{{ __('Send Message') }}</h4>              
-            </div>
-
-            <div class="widget-content widget-content widget-content-area grid-system">
-	            
-	            <p><label for="message_body" class="screen-reader-text">{{ __('Message Body') }}</label>
-				<textarea  type="text" id="message_body" maxlength="256" placeholder="Message">{{ getOption('eventDescription') }}</textarea></p>
-				<p><label><input type="checkbox" id="message_interrupt"> {{ __('Pop-up Alert') }}{% if vrx_enabled %} {{ __('and Send to VRx') }}{% endif %}</label></p>
-				<p><button id="send_message">{{ __('Send Message') }}</button></p>
-	            
-	            	            
-            </div>
-        </div>
-    </div>
-    
-    
-    {% if led_enabled %}
-    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-12 col-12">
-	    
-        <div class="statbox widget box box-shadow">
-            <div class="widget-header">                                      
-                <h4>{{ __('LED Control') }}</h4>              
-            </div>
-
-            <div class="widget-content widget-content widget-content-area grid-system">
-	            
-					<div class="control-set">
-						<button class="LED-color" data-rgb="#000000">{{ __('Turn Off') }}</button>
-					</div>
-			
-					<div class="control-set">
-						<button class="LED-color" data-rgb="#001fff"><span style="background-color:#001fff"></span></button>
-						<button class="LED-color" data-rgb="#ff3f00"><span style="background-color:#ff3f00"></span></button>
-						<button class="LED-color" data-rgb="#7fff00"><span style="background-color:#7fff00"></span></button>
-						<button class="LED-color" data-rgb="#ffff00"><span style="background-color:#ffff00"></span></button>
-						<button class="LED-color" data-rgb="#7f00ff"><span style="background-color:#7f00ff"></span></button>
-						<button class="LED-color" data-rgb="#ff007f"><span style="background-color:#ff007f"></span></button>
-						<button class="LED-color" data-rgb="#3fff3f"><span style="background-color:#3fff3f"></span></button>
-						<button class="LED-color" data-rgb="#00bfff"><span style="background-color:#00bfff"></span></button>
-					</div>
-			
-					<ol class="form">
-						<li>
-							<div class="label-block">
-								<label for="set_led_brightness">{{ __('LED Brightness') }}</label>
-								<p class="desc">{{ __('Level') }}: <span id="led_brightness_value"></span></p>
-							</div>
-							<input type="range" id="set_led_brightness" min="1" max="25">
-						</li>
-						<li>
-							<div class="label-block">
-								<label for="set_led_color">{{ __('LED Color') }}</label>
-							</div>
-							<input type="color" id="set_led_color" />
-						</li>
-					</ol>
-			
-					<div id="LED-effects"></div>	            
-	            	            
-            </div>
-        </div>
-    </div>  
-    {% endif %}
-    
-    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-12 col-12">
-	    
-        <div class="statbox widget box box-shadow">
-            <div class="widget-header">                                      
-                <h4>{{ __('Race Management') }}</h4>              
-            </div>
-
-            <div class="widget-content widget-content widget-content-area grid-system">
-	            
-	            
-	            	            
-            </div>
-        </div>
-    </div>
-          
-    
+<!--Client Messaging-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Send Message') }}</h2>
+	</div>
+	<div class="panel-content">
+		<p><label for="message_body" class="screen-reader-text">{{ __('Message Body') }}</label>
+		<input type="text" id="message_body" maxlength="256" placeholder="Message">{{ getOption('eventDescription') }}</textarea></p>
+		<p><label><input type="checkbox" id="message_interrupt"> {{ __('Pop-up Alert') }}{% if vrx_enabled %} {{ __('and Send to VRx') }}{% endif %}</label></p>
+		<p><button id="send_message">{{ __('Send Message') }}</button></p>
+	</div>
 </div>
 
+<!--Frequency Setup-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Frequency Setup') }}</h2>
+	</div>
+	<div class="panel-content full-width">
+		<div class="control-set">
+			<label for="set_profile">{{ __('Profile') }}:</label>
+			<select id="set_profile">
+				<option>{{ __('Loading...') }}</option>
+			</select>
+			<button id="add_profile">+ {{ __('Add Profile') }}</button>
+			<button class="btn-danger" id="delete_profile">&#215; {{ __('Remove') }}</button>
+		</div>
 
-<div class="row layout-top-spacing">
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_profile_name">{{ __('Name') }}</label>
+				</div>
+				<input type="text" id="set_profile_name">
+			</li>
+		</ol>
+		<p class="form-note">{{ __('Stores frequency settings and sensor tuning values.') }}</p>
 
-    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-	    
-		<div class="widget box box-shadow">
-			
-			<div class="widget-content widget-content widget-content-area grid-system">	  
-			  
-				<ul class="nav nav-tabs  mb-3 mt-3" id="simpletab" role="tablist">
-				    <li class="nav-item">
-				        <a class="nav-link active" id="frequency-setup-tab" data-toggle="tab" href="#frequency-setup" role="tab" aria-controls="home" aria-selected="true">Frequency Setup</a>
-				    </li>
-				    
-				    <li class="nav-item">
-				        <a class="nav-link" id="sensortuning-tab" data-toggle="tab" href="#sensortuning" role="tab" aria-controls="sensortuning" aria-selected="false">Sensor Tuning</a>
-				    </li>
-				    
-				    <li class="nav-item">
-				        <a class="nav-link" id="eventsclasses-tab" data-toggle="tab" href="#eventsclasses" role="tab" aria-controls="eventsclasses" aria-selected="false">Event & Classes</a>
-				    </li>		
-				    
-				    <li class="nav-item">
-				        <a class="nav-link" id="heats-tab" data-toggle="tab" href="#heats" role="tab" aria-controls="heats" aria-selected="false">Heats</a>
-				    </li>	
-				    
+		<!--Apply preset-->
+		<div class="control-set">
+			{{ __('Preset') }}:
+			<button class="set_frequency_preset" data-preset="All-N1">{{ __('Apply Node 1') }}</button>
+			<button class="set_frequency_preset" data-preset="RB-4">{{ __('R1367') }}</button>
+			<button class="set_frequency_preset" data-preset="IMD5C">{{ __('IMD5C') }}</button>
+			<button class="set_frequency_preset" data-preset="IMD6C">{{ __('IMD6C') }}</button>
+			<button class="set_frequency_preset" data-preset="RB-8">{{ __('Raceband 8') }}</button>
+		</div>
 
-				    <li class="nav-item">
-				        <a class="nav-link" id="pilots-tab" data-toggle="tab" href="#pilots" role="tab" aria-controls="pilots" aria-selected="false">Pilots</a>
-				    </li>	
-				    
-				    <li class="nav-item">
-				        <a class="nav-link" id="raceformat-tab" data-toggle="tab" href="#raceformat" role="tab" aria-controls="raceformat" aria-selected="false">Race Format</a>
-				    </li>			    
-				    
-				    
-				    <li class="nav-item">
-				        <a class="nav-link" id="audiocontrol-tab" data-toggle="tab" href="#audiocontrol" role="tab" aria-controls="audiocontrol" aria-selected="false">Audio Control</a>
-				    </li>
-				    
-				    <li class="nav-item">
-				        <a class="nav-link" id="database-tab" data-toggle="tab" href="#database" role="tab" aria-controls="database" aria-selected="false">Database</a>
-				    </li>
-				    
-				    <li class="nav-item">
-				        <a class="nav-link" id="system-tab" data-toggle="tab" href="#system" role="tab" aria-controls="system" aria-selected="false">System</a>
-				    </li>				    				    				    		    				    
-				    
-				    <li class="nav-item">
-				        <a class="nav-link" id="status-tab" data-toggle="tab" href="#status" role="tab" aria-controls="status" aria-selected="false">Status</a>
-				    </li>
+		<div class="node-list">
+			{% for node in range(num_nodes) %}
+				<div class="node" data-node="{{ node }}">
+					{% if vrx_enabled %}
+						<div class="vrx-header"></div>
+					{% endif %}
+					<h3><label for="set_freq_node_{{ node }}">{{ __('Node') }} {{ node + 1 }}</label></h3>
+					<select class="frequency_table" id="f_table_{{ node }}" data-node="{{ node }}"></select>
+					<label for="s_channel_{{ node }}" class="screen-reader-text">Frequency</label>
+					<input type="number" id="s_channel_{{ node }}" class="set_frequency" data-node="{{ node }}" min="5000" max="6001">
+				</div>
+			{% endfor %}
+		</div>
+		<div class="control-set" id="imd_rating_label"></div>
+		<div class="control-set vrx-warning"></div>
+	</div>
+</div>
+
+<!--Sensor Tuning-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Sensor Tuning') }}</h2>
+	</div>
+	<div class="panel-content full-width">
+		<ul class="graph-key">
+			<li><span style="background-color: hsl(214, 53%, 60%)"></span> {{ __('RSSI') }}</li>
+			<li><span style="background-color: hsl(8.2, 86.5%, 53.7%)"></span> {{ __('EnterAt') }}</li>
+			<li><span style="background-color: hsl(25, 85%, 55%)"></span> {{ __('ExitAt') }}</li>
+		</ul>
+		<div class="node-list">
+			{% for node in range(num_nodes) %}
+			<div class="node" data-node="{{ node }}">
+				<h3>{{ __('Node') }} {{ node + 1 }}</h3>
+				<div class="channel-block" data-node="{{ node }}"><span class="ch"></span> <span class="fr"></span></div>
+				<div class="rssi-graph" data-node="{{ node }}">
+					<button class="pause_graph" data-node="{{ node }}"><svg height="1em" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><title>Pause</title><circle cx="8" cy="8" r="7.6" opacity=".8"/><path fill="#fff" d="M3.7 3.7H7v8.7H3.7z"/><path fill="#fff" d="M9 3.7h3.3v8.7H9z"/></svg></button>
+					<canvas id="rssi-graph-{{ node }}">
+					</canvas>
+				</div>
+				<div class="crossing crossing_flag_{{ node }}">{{ __('Clear') }}</div>
+				<div class="node-controls">
+					<div class="enter-exit-control">
+						<label for="set_enter_at_level_{{ node }}">{{ __('EnterAt') }}</label>
+						<input type="number" id="set_enter_at_level_{{ node }}" class="set_enter_at_level" data-node="{{ node }}" min="0" max="999">
+						<button class="cap_enter_at_btn" data-node_index="{{ node }}" title="{{ __('Capture current RSSI') }}"><svg height="1em" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M0 14h16v2H0zM10 6V0H6v6H3l5 7 5-7z"/></svg></button>
+					</div>
+
+					<div class="enter-exit-control">
+						<label for="set_exit_at_level_{{ node }}">{{ __('ExitAt') }}</label>
+						<input type="number" id="set_exit_at_level_{{ node }}" class="set_exit_at_level" data-node="{{ node }}" min="0" max="999">
+						<button class="cap_exit_at_btn" data-node_index="{{ node }}" title="{{ __('Capture current RSSI') }}"><svg height="1em" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M0 14h16v2H0zM10 6V0H6v6H3l5 7 5-7z"/></svg></button>
+					</div>
+				</div>
+				<table>
+					<tr class="datarow">
+						<td>{{ __('RSSI') }}</td>
+						<td>
+							<span class="current_rssi_{{ node }}"></span>
+						</td>
+					</tr>
+					<tr class="datarow">
+						<td>{{ __('NodePeak') }}</td>
+						<td>
+							<span class="node_peak_rssi_{{ node }}"></span>
+						</td>
+					</tr>
+					<tr class="datarow">
+						<td>{{ __('NodeNadir') }}</td>
+						<td>
+							<span class="node_nadir_rssi_{{ node }}"></span>
+						</td>
+					</tr>
+					<tr class="datarow">
+						<td>{{ __('PassPeak') }}</td>
+						<td>
+							<span class="pass_peak_rssi_{{ node }}"></span>
+						</td>
+					</tr>
+					<tr class="datarow">
+						<td>{{ __('PassNadir') }}</td>
+						<td>
+							<span class="pass_nadir_rssi_{{ node }}"></span>
+						</td>
+					</tr>
+					<tr class="datarow">
+						<td>{{ __('PassCount') }}</td>
+						<td>
+							<span class="debug_pass_count_{{ node }}"></span>
+						</td>
+					</tr>
+				</table>
+				<div id="node_notice_{{ node }}"></div>
+			</div>
+			{% endfor %}
+		</div>
+
+		<!--Edit system tuning values-->
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_calibrationMode">{{ __('Calibration Mode') }}</label>
+				</div>
+				<select id="set_calibrationMode" class="set-option" data-option="calibrationMode">
+					<option value="0">{{ __('Manual') }}</option>
+					<option value="1">{{ __('Adaptive') }}</option>
+				</select>
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_start_thresh_lower_amount">{{ __('Start of race EnterAt/ExitAt lowering amount (percent)') }}</label>
+				</div>
+				<input type="number" id="set_start_thresh_lower_amount" min="0" max="200" value="{{ getOption('start_thresh_lower_amount') }}">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_start_thresh_lower_duration">{{ __('Start of race EnterAt/ExitAt lowering duration (seconds)') }}</label>
+				</div>
+				<input type="number" id="set_start_thresh_lower_duration" min="0" max="999" value="{{ getOption('start_thresh_lower_duration') }}">
+			</li>
+		</ol>
+
+		<p class="form-note"><a href="/docs?d=Tuning%20Parameters.md">{{ __("View Calibration and Tuning Guide") }}</a></p>
+	</div>
+</div>
+
+<!--Event and Class info-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Event and Classes') }}</h2>
+	</div>
+	<div class="panel-content">
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_event_name">{{ __('Event Name') }}</label>
+				</div>
+				<input type="text" id="set_event_name" class="set-option" data-option="eventName" value="{{ getOption('eventName') }}">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_event_description">{{ __('Event Description') }}</label>
+				</div>
+				<textarea id="set_event_description" class="set-option" data-option="eventDescription" maxlength="256">{{ getOption('eventDescription') }}</textarea>
+			</li>
+		</ol>
+
+		<div id="race_classes" class="race_classes item-blocks">
+			<p class="form-note">{{ __('Loading...') }}</p>
+		</div>
+		<div class="control-set">
+			<button id="add_race_class">+ {{ __('Add Class') }}</button>
+		</div>
+
+		<div id="class_unlock_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Modifying a locked class retroactively changes saved race data.') }}</p>
+				<p><button class="btn-danger" id="unlock_class">{{ __('Unlock') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!--Heats list for editing-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Heats') }}</h2>
+	</div>
+	<div class="panel-content">
+		<ol id="heats" class="heats item-blocks">
+			<li>{{ __('Loading...') }}</li>
+		</ol>
+		<div class="control-set">
+			<button id="add_heat">+ {{ __('Add Heat') }}</button>
+		</div>
+
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_next_heat_behavior">{{ __('Next Heat Behavior') }}</label>
+				</div>
+				<select id="set_next_heat_behavior">
+					<option value="0">{{ __('Auto-Switch After Race Save') }}</option>
+					<option value="1">{{ __('Manually Switch Heats') }}</option>
+				</select>
+			</li>
+		</ol>
+
+		<h3>Heat generator</h3>
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="generator_input_class">{{ __('Input (Class)') }}</label>
+				</div>
+				<select id="generator_input_class">
+					<option>{{ __('Loading...') }}</option>
+				</select>
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="generator_pilots_per_heat">{{ __('Pilots per Heat') }}</label>
+				</div>
+				<input type="number" id="generator_pilots_per_heat" min="1" max="{{ num_nodes }}" value="{{ num_nodes }}" />
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="generator_suffix">{{ __('Suffix') }}</label>
+				</div>
+				<input type="text" id="generator_suffix" value="{{ __('Main') }}" />
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="generator_output_class">{{ __('Output Class') }}</label>
+				</div>
+				<select id="generator_output_class">
+					<option>{{ __('Loading...') }}</option>
+				</select>
+			</li>
+		</ol>
+		<div class="control-set">
+			<button id="generate_heats">{{ __('Generate Heats') }}</button>
+		</div>
+
+		<div id="heat_unlock_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Modifying a locked heat retroactively changes saved race data.') }}</p>
+				<p><button class="btn-danger" id="unlock_heat">{{ __('Unlock') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!--Pilots list for editing-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Pilots') }}</h2>
+	</div>
+	<div class="panel-content">
+		<ul class="pilots">
+			<li>{{ __('Loading...') }}</li>
+		</ul>
+
+		<div class="control-set">
+			<button id="add_pilot">+ {{ __('Add Pilot') }}</button>
+		</div>
+
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_pilotSort">{{ __('Pilot Sort') }}</label>
+				</div>
+				<select id="set_pilotSort" class="set-option" data-option="pilotSort">
+					<option value="name">{{ __('Name') }}</option>
+					<option value="callsign">{{ __('Callsign') }}</option>
+				</select>
+			</li>
+		</ol>
+	</div>
+</div>
+
+<!--Voice Settings-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Audio Control') }}</h2>
+	</div>
+	<div class="panel-content">
+		<p class="form-note">{{ __('Voice settings apply to this device only.') }}</p>
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_voice_language">{{ __('Voice Select') }}</label>
+				</div>
+				<div id="voice_select"></div>
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_voice_string_language">{{ __('Voice Language') }}</label>
+				</div>
+				<select id="set_voice_string_language">
+					<option>{{ __('Loading...') }}</option>
+				</select>
+			</li>
+			<li>
+				<div class="label-block">
+					{{ __('Voice Test') }} &nbsp; &nbsp;
+				</div>
+				<input type="text" id="voice_test_text" value="{{ getOption('timerName') }}">
+				<button class="button" id="play_voice_test">&#9658;&#65038; <span class="screen-reader-text">{{ __('Play') }}</span></button>
+			</li>
+			<li>
+				<div class="label-block">
+					{{ __('Announcements') }}
+				</div>
+				<li>
+					<div class="label-block">
+						<label for="voice_callsign">{{ __('Pilot Callsign') }}</label>
+					</div>
+					<select id="voice_callsign">
+						<option value="0">{{ __('Never') }}</option>
+						<option value="2">{{ __('Only on Non-team Races') }}</option>
+						<option value="1">{{ __('Always') }}</option>
+					</select>
+				</li>
+				<li>
+					<div class="label-block">
+						<label for="voice_lap_count">{{ __('Pilot Lap Number') }}</label>
+					</div>
+					<select id="voice_lap_count">
+						<option value="0">{{ __('Never') }}</option>
+						<option value="2">{{ __('Only on Non-team Races') }}</option>
+						<option value="1">{{ __('Always') }}</option>
+					</select>
+				</li>
+				<li>
+					<div class="label-block">
+						<label for="voice_lap_time">{{ __('Pilot Lap Time') }}</label>
+					</div>
+					<select id="voice_lap_time">
+						<option value="0">{{ __('Never') }}</option>
+						<option value="2">{{ __('Only on Non-team Races') }}</option>
+						<option value="1">{{ __('Always') }}</option>
+					</select>
+				</li>
+				<li>
+					<div class="label-block">
+						<label for="voice_race_timer">{{ __('Race Clock') }}</label>
+					</div>
+					<select id="voice_race_timer">
+						<option value="0">{{ __('Never') }}</option>
+						<option value="2">{{ __('Only on Fixed-time Races') }}</option>
+						<option value="1">{{ __('Always') }}</option>
+					</select>
+				</li>
+				<li>
+					<div class="label-block">
+						<label for="voice_team_lap_count">{{ __('Team Lap Total') }}</label>
+					</div>
+					<select id="voice_team_lap_count">
+						<option value="0">{{ __('Never') }}</option>
+						<option value="1">{{ __('On Team Races') }}</option>
+					</select>
+				</li>
+				<li>
+					<div class="label-block">
+						<label for="voice_race_winner">{{ __('Race Winner') }}</label>
+					</div>
+					<select id="voice_race_winner">
+						<option value="0">{{ __('Never') }}</option>
+						<option value="1">{{ __('Always') }}</option>
+					</select>
+				</li>
+				{% if cluster_has_secondaries %}
+				<li>
+					<!--
+					Split Timer:
+					Pilot Name, Split ID, Split Time
+					    0          0         0   ~>  000 = 0  :  None
+					    1          0         0   ~>  001 = 1  :  Pilot Name
+					    1          1         0   ~>  011 = 3  :  Pilot Name, Split ID
+					    1          0         1   ~>  101 = 5  :  Pilot Name, Split Time
+					    1          1         1   ~>  111 = 7  :  Pilot Name, Split ID, Split Time
+					    0          1         0   ~>  010 = 2  :  Split ID
+					    0          0         1   ~>  100 = 4  :  Split Time
+					    0          1         1   ~>  110 = 6  :  Split ID, Split Time
+
+					SPLMSK_PILOT_NAME = 0x01
+					SPLMSK_SPLIT_ID = 0x02
+					SPLMSK_SPLIT_TIME = 0x04
+					-->
+					<div class="label-block">
+						<label for="voice_split_timer">{{ __('Cluster/Split Timer') }}</label>
+					</div>
+					<select id="voice_split_timer">
+						<option value="0">{{ __('None') }}</option>
+						<option value="1">{{ __('Pilot Name') }}</option>
+						<option value="5">{{ __('Pilot Name, Split Time') }}</option>
+						<option value="3">{{ __('Pilot Name, Split ID') }}</option>
+						<option value="7">{{ __('Pilot Name, Split ID, Split Time') }}</option>
+						<option value="2">{{ __('Split ID') }}</option>
+						<option value="4">{{ __('Split Time') }}</option>
+						<option value="6">{{ __('Split ID, Split Time') }}</option>
+					</select>
+				</li>
+				{% endif %}
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_voice_volume">{{ __('Voice Volume') }}</label>
+					<p class="desc">{{ __('Volume') }}: <span id="voice_volume_value"></span></p>
+				</div>
+				<input type="range" id="set_voice_volume" min="0" max="100">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_voice_rate">{{ __('Voice Rate') }}</label>
+					<p class="desc">{{ __('Rate') }}: <span id="voice_rate_value"></span></p>
+				</div>
+				<input type="range" id="set_voice_rate" min="0" max="2.0" step="0.01">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_voice_pitch">{{ __('Voice Pitch') }}</label>
+					<p class="desc">{{ __('Pitch') }}: <span id="voice_pitch_value"></span></p>
+				</div>
+				<input type="range" id="set_voice_pitch" min="0" max="2.0" step="0.01">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_tone_volume">{{ __('Tone Volume') }}</label>
+					<p class="desc">{{ __('Volume') }}: <span id="tone_volume_value"></span></p>
+				</div>
+				<input type="range" id="set_tone_volume" min="0" max="100">
+			</li>
+			<li>
+				<div class="label-block">
+					{{ __('Indicator Beeps') }}
+				</div>
+				<ul>
+					<li><label><input type="checkbox" id="beep_on_first_pass_button"> {{ __('On First Pass') }}</label></li>
+					<li><label><input type="checkbox" id="beep_crossing_entered"> {{ __('Crossing Entered') }}</label></li>
+					<li><label><input type="checkbox" id="beep_crossing_exited"> {{ __('Crossing Exited') }}</label></li>
+					<li><label><input type="checkbox" id="beep_manual_lap_button"> {{ __('Manual Lap Button') }}</label></li>
+					<li><label><input type="checkbox" id="beep_race_leader_lap"> {{ __('Race Leader Lap') }}</label></li>
+					<li><label><input type="checkbox" id="beep_race_winner_declared"> {{ __('Race Winner Declared') }}</label></li>
+					{% if cluster_has_secondaries %}
+					<li><label><input type="checkbox" id="beep_cluster_connect"> {{ __('Cluster Timer Connect / Disconnect') }}</label></li>
+					{% endif %}
+					<li><label><input type="checkbox" id="use_mp3_tones"> {{ __('Use MP3 Tones instead of synthetic tones') }}</label></li>
 				</ul>
-				<div class="tab-content" id="simpletabContent">
-					
-					
-			
-				    <div class="tab-pane fade show active" id="frequency-setup" role="tabpanel" aria-labelledby="frequency-setup-tab">
-							<div class="panel-content">
-								<div class="control-set">
-									<label for="set_profile">{{ __('Profile') }}:</label>
-									<select id="set_profile">
-										<option>{{ __('Loading...') }}</option>
-									</select>
-									<button id="add_profile">+ {{ __('Add Profile') }}</button>
-									<button class="btn-danger" id="delete_profile">&#215; {{ __('Remove') }}</button>
-								</div>
-						
-								<ol class="form">
-									<li>
-										<div class="label-block">
-											<label for="set_profile_name">{{ __('Name') }}</label>
-										</div>
-										<input type="text" id="set_profile_name">
-									</li>
-								</ol>
-								<p class="form-note">{{ __('Stores frequency settings and sensor tuning values.') }}</p>
-						
-								<!--Apply preset-->
-								<div class="control-set">
-									{{ __('Preset') }}:
-									<button class="set_frequency_preset" data-preset="All-N1">{{ __('Apply Node 1') }}</button>
-									<button class="set_frequency_preset" data-preset="RB-4">{{ __('R1367') }}</button>
-									<button class="set_frequency_preset" data-preset="IMD5C">{{ __('IMD5C') }}</button>
-									<button class="set_frequency_preset" data-preset="IMD6C">{{ __('IMD6C') }}</button>
-									<button class="set_frequency_preset" data-preset="RB-8">{{ __('Raceband 8') }}</button>
-								</div>
-						
-								<div class="node-list">
-									{% for node in range(num_nodes) %}
-										<div class="node" data-node="{{ node }}">
-											{% if vrx_enabled %}
-												<div class="vrx-header"></div>
-											{% endif %}
-											<h3><label for="set_freq_node_{{ node }}">{{ __('Node') }} {{ node + 1 }}</label></h3>
-											<select class="frequency_table" id="f_table_{{ node }}" data-node="{{ node }}"></select>
-											<label for="s_channel_{{ node }}" class="screen-reader-text">Frequency</label>
-											<input type="number" id="s_channel_{{ node }}" class="set_frequency" data-node="{{ node }}" min="5000" max="6001">
-										</div>
-									{% endfor %}
-								</div>
-								<div class="control-set" id="imd_rating_label"></div>
-								<div class="control-set vrx-warning"></div>
-							</div>
-							
-				    </div>
-				    
-				    
-				    
-				    
-				    <div class="tab-pane fade" id="sensortuning" role="tabpanel" aria-labelledby="sensortuning-tab">
-		
-						<div class="panel-content">
-							<ul class="graph-key">
-								<li><span style="background-color: hsl(214, 53%, 60%)"></span> {{ __('RSSI') }}</li>
-								<li><span style="background-color: hsl(8.2, 86.5%, 53.7%)"></span> {{ __('EnterAt') }}</li>
-								<li><span style="background-color: hsl(25, 85%, 55%)"></span> {{ __('ExitAt') }}</li>
-							</ul>
-							<div class="node-list">
-								{% for node in range(num_nodes) %}
-								<div class="node" data-node="{{ node }}">
-									<h3>{{ __('Node') }} {{ node + 1 }}</h3>
-									<div class="channel-block" data-node="{{ node }}"><span class="ch"></span> <span class="fr"></span></div>
-									<div class="rssi-graph">
-										<button class="pause_graph" data-node="{{ node }}">&#x23ef;&#xFE0E;<span class="screen-reader-text"> {{ __('Pause/Resume Graph') }}</span></button>
-										<canvas id="rssi-graph-{{ node }}">
-										</canvas>
-									</div>
-									<div class="crossing crossing_flag_{{ node }}">{{ __('Clear') }}</div>
-									<div class="node-controls">
-										<div class="enter-exit-control">
-											<label for="set_enter_at_level_{{ node }}">{{ __('EnterAt') }}</label>
-											<input type="number" id="set_enter_at_level_{{ node }}" class="set_enter_at_level" data-node="{{ node }}" min="0" max="999">
-											<button class="cap_enter_at_btn" data-node_index="{{ node }}">{{ __('Capture') }}</button>
-										</div>
-					
-										<div class="enter-exit-control">
-											<label for="set_exit_at_level_{{ node }}">{{ __('ExitAt') }}</label>
-											<input type="number" id="set_exit_at_level_{{ node }}" class="set_exit_at_level" data-node="{{ node }}" min="0" max="999">
-											<button class="cap_exit_at_btn" data-node_index="{{ node }}">{{ __('Capture') }}</button>
-										</div>
-									</div>
-									<table>
-										<tr class="datarow">
-											<td>{{ __('RSSI') }}</td>
-											<td>
-												<span class="current_rssi_{{ node }}"></span>
-											</td>
-										</tr>
-										<tr class="datarow">
-											<td>{{ __('NodePeak') }}</td>
-											<td>
-												<span class="node_peak_rssi_{{ node }}"></span>
-											</td>
-										</tr>
-										<tr class="datarow">
-											<td>{{ __('NodeNadir') }}</td>
-											<td>
-												<span class="node_nadir_rssi_{{ node }}"></span>
-											</td>
-										</tr>
-										<tr class="datarow">
-											<td>{{ __('PassPeak') }}</td>
-											<td>
-												<span class="pass_peak_rssi_{{ node }}"></span>
-											</td>
-										</tr>
-										<tr class="datarow">
-											<td>{{ __('PassNadir') }}</td>
-											<td>
-												<span class="pass_nadir_rssi_{{ node }}"></span>
-											</td>
-										</tr>
-										<tr class="datarow">
-											<td>{{ __('PassCount') }}</td>
-											<td>
-												<span class="debug_pass_count_{{ node }}"></span>
-											</td>
-										</tr>
-									</table>
-									<div id="node_notice_{{ node }}"></div>
-								</div>
-								{% endfor %}
-							</div>
-					
-							<!--Edit system tuning values-->
-							<ol class="form">
-								<li>
-									<div class="label-block">
-										<label for="set_calibrationMode">{{ __('Calibration Mode') }}</label>
-									</div>
-									<select id="set_calibrationMode" class="set-option" data-option="calibrationMode">
-										<option value="0">{{ __('Manual') }}</option>
-										<option value="1">{{ __('Adaptive') }}</option>
-									</select>
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_start_thresh_lower_amount">{{ __('Start of race EnterAt/ExitAt lowering amount (percent)') }}</label>
-									</div>
-									<input type="number" id="set_start_thresh_lower_amount" min="0" max="200" value="{{ getOption('start_thresh_lower_amount') }}">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_start_thresh_lower_duration">{{ __('Start of race EnterAt/ExitAt lowering duration (seconds)') }}</label>
-									</div>
-									<input type="number" id="set_start_thresh_lower_duration" min="0" max="999" value="{{ getOption('start_thresh_lower_duration') }}">
-								</li>
-							</ol>
-					
-							<p class="form-note"><a href="/docs?d=Tuning%20Parameters.md">{{ __("View Calibration and Tuning Guide") }}</a></p>
-						</div>
-
-				    </div>
-				    
-				    
-				    
-				    
-				    
-				    <div class="tab-pane fade" id="eventsclasses" role="tabpanel" aria-labelledby="eventsclasses-tab">
-		
-						<div class="panel-content">
-							<ol class="form">
-								<li>
-									<div class="label-block">
-										<label for="set_event_name">{{ __('Event Name') }}</label>
-									</div>
-									<input type="text" id="set_event_name" class="set-option" data-option="eventName" value="{{ getOption('eventName') }}">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_event_description">{{ __('Event Description') }}</label>
-									</div>
-									<textarea id="set_event_description" class="set-option" data-option="eventDescription" maxlength="256">{{ getOption('eventDescription') }}</textarea>
-								</li>
-							</ol>
-					
-							<div id="race_classes" class="race_classes item-blocks">
-								<p class="form-note">{{ __('Loading...') }}</p>
-							</div>
-							<div class="control-set">
-								<button id="add_race_class">+ {{ __('Add Class') }}</button>
-							</div>
-					
-							<div id="class_unlock_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Modifying a locked class retroactively changes saved race data.') }}</p>
-									<p><button class="btn-danger" id="unlock_class">{{ __('Unlock') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-						</div>
-		
-				    </div>				    
-				    
-				    
-				    
-				    
-				    <div class="tab-pane fade" id="heats" role="tabpanel" aria-labelledby="heats-tab">
-		
-						<div class="panel-content">
-							<ol id="heats" class="heats item-blocks">
-								<li>{{ __('Loading...') }}</li>
-							</ol>
-							<div class="control-set">
-								<button id="add_heat">+ {{ __('Add Heat') }}</button>
-							</div>
-					
-							<ol class="form">
-								<li>
-									<div class="label-block">
-										<label for="set_next_heat_behavior">{{ __('Next Heat Behavior') }}</label>
-									</div>
-									<select id="set_next_heat_behavior">
-										<option value="0">{{ __('Auto-Switch After Race Save') }}</option>
-										<option value="1">{{ __('Manually Switch Heats') }}</option>
-									</select>
-								</li>
-							</ol>
-					
-							<h3>Heat generator</h3>
-							<ol class="form">
-								<li>
-									<div class="label-block">
-										<label for="generator_input_class">{{ __('Input (Class)') }}</label>
-									</div>
-									<select id="generator_input_class">
-										<option>{{ __('Loading...') }}</option>
-									</select>
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="generator_pilots_per_heat">{{ __('Pilots per Heat') }}</label>
-									</div>
-									<input type="number" id="generator_pilots_per_heat" min="1" max="{{ num_nodes }}" value="{{ num_nodes }}" />
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="generator_suffix">{{ __('Suffix') }}</label>
-									</div>
-									<input type="text" id="generator_suffix" value="{{ __('Main') }}" />
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="generator_output_class">{{ __('Output Class') }}</label>
-									</div>
-									<select id="generator_output_class">
-										<option>{{ __('Loading...') }}</option>
-									</select>
-								</li>
-							</ol>
-							<div class="control-set">
-								<button id="generate_heats">{{ __('Generate Heats') }}</button>
-							</div>
-					
-							<div id="heat_unlock_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Modifying a locked heat retroactively changes saved race data.') }}</p>
-									<p><button class="btn-danger" id="unlock_heat">{{ __('Unlock') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-						</div>
-		
-				    </div>				    
-
-
-
-				    <div class="tab-pane fade" id="pilots" role="tabpanel" aria-labelledby="pilots-tab">
-		
-						<div class="panel-content">
-							<ul class="pilots">
-								<li>{{ __('Loading...') }}</li>
-							</ul>
-					
-							<div class="control-set">
-								<button id="add_pilot">+ {{ __('Add Pilot') }}</button>
-							</div>
-					
-							<ol class="form">
-								<li>
-									<div class="label-block">
-										<label for="set_pilotSort">{{ __('Pilot Sort') }}</label>
-									</div>
-									<select id="set_pilotSort" class="set-option" data-option="pilotSort">
-										<option value="name">{{ __('Name') }}</option>
-										<option value="callsign">{{ __('Callsign') }}</option>
-									</select>
-								</li>
-							</ol>
-						</div>
-
-				    </div>	
-				    
-				    
-				    
-				    <div class="tab-pane fade" id="raceformat" role="tabpanel" aria-labelledby="raceformat-tab">
-		
-						<div class="panel-content">
-							<p class="form-note">{{ __('Format cannot be changed while a race is running.') }}</p>
-					
-							<div class="control-set">
-								<label for="set_race_format">{{ __('Format:') }}</label>
-								<select id="set_race_format">
-									<option>{{ __('Loading...') }}</option>
-								</select>
-								<button id="add_race_format" title="{{ __('Duplicate Format') }}">+</button>
-								<button class="btn-danger open-mfp-popup unlock" id="unlock_race_format_button" data-mfp-src="#format_unlock_confirm" title="{{ __('Force Modify Format') }}"></button>
-								<button class="btn-danger open-mfp-popup" id="delete_race_format_button" data-mfp-src="#format_delete_confirm" title="{{ __('Remove') }}">&#215;</button>
-							</div>
-					
-							<div id="format_unlock_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Modifying a locked format retroactively changes saved race data.') }}</p>
-									<p><button class="btn-danger" id="unlock_race_format">{{ __('Unlock') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-					
-							<div id="format_delete_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Deleting a race format cannot be undone.') }}</p>
-									<p><button class="btn-danger" id="delete_race_format">{{ __('Delete') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-					
-							<ol class="form" id="race_formats">
-								<li>
-									<div class="label-block">
-										<label for="set_format_name">{{ __('Name') }}</label>
-									</div>
-									<input type="text" id="set_format_name">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_race_mode">{{ __('Race Clock Mode') }}</label>
-									</div>
-									<select id="set_race_mode">
-										<option value="1">{{ __('No Time Limit') }}</option>
-										<option value="0">{{ __('Fixed Time') }}</option><!--  / Finish Lap -->
-										<!-- <option value="2">{{ __('Fixed Time / End Immediately') }}</option> -->
-									</select>
-								</li>
-								<li id="format-race-duration-field">
-									<div class="label-block">
-										<label for="set_fix_race_time">{{ __('Timer Duration (seconds)') }}</label>
-									</div>
-									<input type="number" id="set_fix_race_time" min="0" max="99999">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_start_delay_min">{{ __('Minimum Start Delay') }}</label>
-										<p class="desc">{{ __('Minimum time before race begins') }}</p>
-									</div>
-									<input type="number" id="set_start_delay_min" min="0" max="999">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_start_delay_max">{{ __('Maximum Start Delay') }}</label>
-										<p class="desc">{{ __('Maximum time before race begins') }}<br />
-											{{ __('Staging timer is hidden unless value matches Minimum Start Delay') }}</p>
-									</div>
-									<input type="number" id="set_start_delay_max" min="0" max="999">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_staging_tones">{{ __('Staging Tones') }}</label>
-									</div>
-									<select id="set_staging_tones">
-										<option value="2">{{ __('Each Second') }}</option>
-										<option value="1">{{ __('One') }}</option>
-										<option value="0">{{ __('None') }}</option>
-									</select>
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_start_behavior">{{ __('First Crossing') }}</label>
-									</div>
-									<select id="set_start_behavior">
-										<option value="0">{{ __('Hole Shot') }}</option>
-										<option value="1">{{ __('First Lap') }}</option>
-										<option value="2">{{ __('Staggered Start') }}</option>
-									</select>
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_win_condition">{{ __('Win Condition') }}</label>
-									</div>
-									<select id="set_win_condition">
-										<option value="1">{{ __('Most Laps in Fastest Time') }}</option>
-										<option value="5">{{ __('Most Laps Only') }}</option>
-										<option value="6">{{ __('Most Laps Only with Overtime') }}</option>
-										<option value="2">{{ __('First to X Laps') }}</option>
-										<option value="3">{{ __('Fastest Lap') }}</option>
-										<option value="4">{{ __('Fastest 3 Consecutive Laps') }}</option>
-										<option value="0">{{ __('None') }}</option>
-									</select>
-								</li>
-								<li id="format-laps-to-win-field">
-									<div class="label-block">
-										<label for="set_number_laps_win">{{ __('Number of Laps to Win') }}</label>
-									</div>
-									<input type="number" id="set_number_laps_win" min="0" max="999">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_team_racing_mode">{{ __('Team Racing Mode') }}</label>
-									</div>
-									<select id="set_team_racing_mode">
-										<option value="0">{{ __('Team Racing Disabled') }}</option>
-										<option value="1">{{ __('Team Racing Enabled') }}</option>
-									</select>
-								</li>
-							</ol>
-					
-							<div id="race_format_suggestions" class="form-note emphasis"></div>
-					
-							<hr />
-					
-							<ol class="form">
-								<li>
-									<div class="label-block">
-										<label for="set_min_lap">{{ __('Minimum Lap Time') }}</label>
-										<p class="desc">{{ __('In seconds') }}</p>
-									</div>
-									<input type="number" id="set_min_lap" min="0" max="999" value="{{ getOption('MinLapSec') }}">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_min_lap_behavior">{{ __('Minimum Lap Behavior') }}</label>
-									</div>
-									<select id="set_min_lap_behavior">
-										<option value="0">{{ __('Highlight Short Laps') }}</option>
-										<option value="1">{{ __('Discard New Short Laps') }}</option>
-									</select>
-								</li>
-					
-							</ol>
-						</div>
-				
-				    </div>
-				    
-				    
-				    
-				    
-				    <div class="tab-pane fade" id="audiocontrol" role="tabpanel" aria-labelledby="audiocontrol-tab">
-
-						<div class="panel-content">
-							<p class="form-note">{{ __('Voice settings apply to this device only.') }}</p>
-							<ol class="form">
-								<li>
-									<div class="label-block">
-										<label for="set_voice_language">{{ __('Voice Select') }}</label>
-									</div>
-									<div id="voice_select"></div>
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_voice_string_language">{{ __('Voice Language') }}</label>
-									</div>
-									<select id="set_voice_string_language">
-										<option>{{ __('Loading...') }}</option>
-									</select>
-								</li>
-								<li>
-									<div class="label-block">
-										{{ __('Voice Test') }} &nbsp; &nbsp;
-									</div>
-									<input type="text" id="voice_test_text" value="{{ getOption('timerName') }}">
-									<button class="button" id="play_voice_test">&#9658;&#65038; <span class="screen-reader-text">{{ __('Play') }}</span></button>
-								</li>
-								<li>
-									<div class="label-block">
-										{{ __('Announcements') }}
-									</div>
-									<li>
-										<div class="label-block">
-											<label for="voice_callsign">{{ __('Pilot Callsign') }}</label>
-										</div>
-										<select id="voice_callsign">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="2">{{ __('Only on Non-team Races') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_lap_count">{{ __('Pilot Lap Number') }}</label>
-										</div>
-										<select id="voice_lap_count">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="2">{{ __('Only on Non-team Races') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_lap_time">{{ __('Pilot Lap Time') }}</label>
-										</div>
-										<select id="voice_lap_time">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="2">{{ __('Only on Non-team Races') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_race_timer">{{ __('Race Clock') }}</label>
-										</div>
-										<select id="voice_race_timer">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="2">{{ __('Only on Fixed-time Races') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_team_lap_count">{{ __('Team Lap Total') }}</label>
-										</div>
-										<select id="voice_team_lap_count">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="1">{{ __('On Team Races') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_race_winner">{{ __('Race Winner') }}</label>
-										</div>
-										<select id="voice_race_winner">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									{% if cluster_has_secondaries %}
-									<li>
-										<!--
-										Split Timer:
-										Pilot Name, Split ID, Split Time
-										    0          0         0   ~>  000 = 0  :  None
-										    1          0         0   ~>  001 = 1  :  Pilot Name
-										    1          1         0   ~>  011 = 3  :  Pilot Name, Split ID
-										    1          0         1   ~>  101 = 5  :  Pilot Name, Split Time
-										    1          1         1   ~>  111 = 7  :  Pilot Name, Split ID, Split Time
-										    0          1         0   ~>  010 = 2  :  Split ID
-										    0          0         1   ~>  100 = 4  :  Split Time
-										    0          1         1   ~>  110 = 6  :  Split ID, Split Time
-					
-										SPLMSK_PILOT_NAME = 0x01
-										SPLMSK_SPLIT_ID = 0x02
-										SPLMSK_SPLIT_TIME = 0x04
-										-->
-										<div class="label-block">
-											<label for="voice_split_timer">{{ __('Cluster/Split Timer') }}</label>
-										</div>
-										<select id="voice_split_timer">
-											<option value="0">{{ __('None') }}</option>
-											<option value="1">{{ __('Pilot Name') }}</option>
-											<option value="5">{{ __('Pilot Name, Split Time') }}</option>
-											<option value="3">{{ __('Pilot Name, Split ID') }}</option>
-											<option value="7">{{ __('Pilot Name, Split ID, Split Time') }}</option>
-											<option value="2">{{ __('Split ID') }}</option>
-											<option value="4">{{ __('Split Time') }}</option>
-											<option value="6">{{ __('Split ID, Split Time') }}</option>
-										</select>
-									</li>
-									{% endif %}
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_voice_volume">{{ __('Voice Volume') }}</label>
-										<p class="desc">{{ __('Volume') }}: <span id="voice_volume_value"></span></p>
-									</div>
-									<input type="range" id="set_voice_volume" min="1" max="100">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_voice_rate">{{ __('Voice Rate') }}</label>
-										<p class="desc">{{ __('Rate') }}: <span id="voice_rate_value"></span></p>
-									</div>
-									<input type="range" id="set_voice_rate" min="0" max="2.0" step="0.01">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_voice_pitch">{{ __('Voice Pitch') }}</label>
-										<p class="desc">{{ __('Pitch') }}: <span id="voice_pitch_value"></span></p>
-									</div>
-									<input type="range" id="set_voice_pitch" min="0" max="2.0" step="0.01">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_tone_volume">{{ __('Tone Volume') }}</label>
-										<p class="desc">{{ __('Volume') }}: <span id="tone_volume_value"></span></p>
-									</div>
-									<input type="range" id="set_tone_volume" min="1" max="100">
-								</li>
-								<li>
-									<div class="label-block">
-										{{ __('Indicator Beeps') }}
-									</div>
-									<ul>
-										<li><label><input type="checkbox" id="beep_on_first_pass_button"> {{ __('On First Pass') }}</label></li>
-										<li><label><input type="checkbox" id="beep_crossing_entered"> {{ __('Crossing Entered') }}</label></li>
-										<li><label><input type="checkbox" id="beep_crossing_exited"> {{ __('Crossing Exited') }}</label></li>
-										<li><label><input type="checkbox" id="beep_manual_lap_button"> {{ __('Manual Lap Button') }}</label></li>
-										<li><label><input type="checkbox" id="beep_race_leader_lap"> {{ __('Race Leader Lap') }}</label></li>
-										<li><label><input type="checkbox" id="beep_race_winner_declared"> {{ __('Race Winner Declared') }}</label></li>
-										{% if cluster_has_secondaries %}
-										<li><label><input type="checkbox" id="beep_cluster_connect"> {{ __('Cluster Timer Connect / Disconnect') }}</label></li>
-										{% endif %}
-										<li><label><input type="checkbox" id="use_mp3_tones"> {{ __('Use MP3 Tones instead of synthetic tones') }}</label></li>
-									</ul>
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_indicator_volume">{{ __('Indicator Beeps Volume') }}</label>
-										<p class="desc">{{ __('Volume') }}: <span id="indicator_volume_value"></span></p>
-									</div>
-									<input type="range" id="set_indicator_volume" min="1" max="100">
-								</li>
-							</ol>
-						</div>
-							
-				    </div>	
-				    
-				    
-				    
-				    
-				    
-				    <div class="tab-pane fade" id="database" role="tabpanel" aria-labelledby="database-tab">
-						<div class="panel-content">
-							<div class="control-set">
-								<button id="backup_database">{{ __('Backup Database') }}</button>
-								{% if Debug %}<a href="/database" class="debug button-like">{{ __('View Database') }}</a>{% endif %}
-							</div>
-							<div class="control-set">
-								<select id="reset_type">
-									<option value="races">{{ __('Races') }}</option>
-									<option value="heats">{{ __('Races and Heats') }}</option>
-									<option value="classes">{{ __('Races, Heats, and Classes') }}</option>
-									<option value="pilots">{{ __('Races, Heats, and Pilots') }}</option>
-									<option value="all">{{ __('Races, Heats, Classes, and Pilots') }}</option>
-									<option value="formats">{{ __('Races and Race Formats') }}</option>
-								</select>
-								<button class="btn-danger open-mfp-popup" data-mfp-src="#clear_data_confirm">{{ __('Clear Data') }}</button>
-							</div>
-							<div class="control-set">
-								<select id="database_list" disabled="disabled">
-									<option value="-">{{ __('No Saved Databases') }}</option>
-								</select>
-								<button data-mfp-src="#database_restore_confirm" class="btn-danger open-mfp-popup" disabled="disabled">{{ __('Restore Data') }}</button>
-								<button data-mfp-src="#database_delete_confirm" class="btn-danger open-mfp-popup" disabled="disabled">{{ __('Delete Data') }}</button>
-							</div>
-							<div class="control-set">
-								<select id="exporter_list" disabled="disabled">
-									<option value="-">{{ __('No Exporters') }}</option>
-								</select>
-								<button id="export_database" disabled="disabled">{{ __('Export Data') }}</button>
-							</div>
-					
-							<div id="clear_data_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Current race data is not recoverable. Are you sure?') }}</p>
-									<p><button class="btn-danger" id="reset_database">{{ __('Clear Data') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-					
-							<div id="database_restore_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Restoring overwrites all current data. Are you sure?') }}</p>
-									<p><button class="btn-danger" id="restore_database">{{ __('Restore Data') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-					
-					      <div id="database_delete_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Deleted database files are not recoverable. Are you sure?') }}</p>
-									<p><button class="btn-danger" id="delete_database">{{ __('Delete Data') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-						</div>
-				    </div>						    					    
-				    	
-				    	
-				    	
-				    				    					    					    
-				    <div class="tab-pane fade" id="system" role="tabpanel" aria-labelledby="system-tab">
-						<div class="panel-content">
-							<div class="control-set">
-								{% if is_raspberry_pi %}
-								<button data-mfp-src="#shutdown_confirm" class="btn-danger open-mfp-popup">{{ __('Shut Down') }}</button>
-								<button data-mfp-src="#reboot_confirm" class="btn-danger open-mfp-popup">{{ __('Reboot') }}</button>
-								{% endif %}
-								{% if Debug %}
-								<button data-mfp-src="#kill_server_confirm" class="btn-danger open-mfp-popup">{{ __('Kill Server') }}</button>
-								{% endif %}
-								<a href="/hardwarelog" class="debug button-like">{{ __('Server Log') }}</a>
-								<button id="download_logs">{{ __('Download Logs') }}</button>
-								{% if node_fw_updatable %}
-								<a href="/updatenodes" class="debug button-like">{{ __('Update Nodes') }}</a>
-								{% endif %}
-							</div>
-					
-							<div id="shutdown_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Shut down server?') }}</p>
-									<p><button class="btn-danger" id="shutdown_pi">{{ __('Shut Down') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-					
-							<div id="reboot_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Reboot server?') }}</p>
-									<p><button class="btn-danger" id="reboot_pi">{{ __('Reboot') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-					
-							<div id="kill_server_confirm" class="priority-message-interrupt mfp-hide popup">
-								<h2>{{ __('Alert') }}</h2>
-								<div class="popup-content">
-									<p>{{ __('Terminate RotorHazard server?') }}</p>
-									<p><button class="btn-danger" id="kill_server">{{ __('Kill Server') }}</button>
-									<button class="cancel">{{ __('Cancel') }}</button></p>
-								</div>
-							</div>
-					
-							<ol class="form">
-								<li>
-									<div class="label-block">
-										<label for="set_language">{{ __('Language') }}</label>
-									</div>
-									<select id="set_language">
-										<option>{{ __('Loading...') }}</option>
-									</select>
-								</li>
-					
-								<li>
-									<div class="label-block">
-										<label for="set_timer_name">{{ __('Timer Name') }}</label>
-									</div>
-									<input type="text" id="set_timer_name" class="set-option" data-option="timerName" value="{{ getOption('timerName') }}">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_timer_logo">{{ __('Timer Logo') }}</label>
-										<p class="desc">{{ __('File path relative to RotorHazard/server/static/user') }}</p>
-									</div>
-									<input type="text" id="set_timer_logo" class="set-option" data-option="timerLogo" value="{{ getOption('timerLogo') }}" placeholder="group-logo.png">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_hue_primary">{{ __('Primary Hue') }}</label>
-									</div>
-									<input type="range" id="set_hue_primary" class="hue-control" data-option="hue_0" value="{{ getOption('hue_0') }}" min="0" max="359">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_sat_primary">{{ __('Primary Saturation') }}</label>
-									</div>
-									<input type="range" id="set_sat_primary" class="sat-control" data-option="sat_0" value="{{ getOption('sat_0') }}" min="0" max="100">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_hue_secondary">{{ __('Secondary Hue') }}</label>
-									</div>
-									<input type="range" id="set_hue_secondary" class="hue-control" data-option="hue_1" value="{{ getOption('hue_1') }}" min="0" max="359">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_sat_secondary">{{ __('Secondary Saturation') }}</label>
-									</div>
-									<input type="range" id="set_sat_secondary" class="sat-control" data-option="sat_1" value="{{ getOption('sat_1') }}" min="0" max="100">
-								</li>
-							</ol>
-					
-							<div class="control-set">
-								<div class="swatch primary-color">{{ __('Primary Color') }}</div>
-								<div class="swatch secondary-color">{{ __('Secondary Color') }}</div>
-							</div>
-						</div>		
-		
-				    </div>						    					    
-				    
-				    
-				    
-				    
-				    <div class="tab-pane fade" id="status" role="tabpanel" aria-labelledby="status-tab">
-						<div class="panel-content">
-							<div id="cluster-status" class="control-set">
-							</div>
-							<div id="env-data-table" class="control-set">
-							</div>
-						</div>				
-				    </div>						    					    
-				    				    
-								    
-				    
-				</div>	  
-				
-			</div>  
-		    
-		</div>   
-	    
-    </div>
-    
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_indicator_volume">{{ __('Indicator Beeps Volume') }}</label>
+					<p class="desc">{{ __('Volume') }}: <span id="indicator_volume_value"></span></p>
+				</div>
+				<input type="range" id="set_indicator_volume" min="0" max="100">
+			</li>
+		</ol>
+	</div>
 </div>
 
+<!--Race Format-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Race Format') }}</h2>
+	</div>
+	<div class="panel-content">
+		<p class="form-note">{{ __('Format cannot be changed while a race is running.') }}</p>
 
+		<div class="control-set">
+			<label for="set_race_format">{{ __('Format:') }}</label>
+			<select id="set_race_format">
+				<option>{{ __('Loading...') }}</option>
+			</select>
+			<button id="add_race_format" title="{{ __('Duplicate Format') }}">+</button>
+			<button class="btn-danger open-mfp-popup unlock" id="unlock_race_format_button" data-mfp-src="#format_unlock_confirm" title="{{ __('Force Modify Format') }}"></button>
+			<button class="btn-danger open-mfp-popup" id="delete_race_format_button" data-mfp-src="#format_delete_confirm" title="{{ __('Remove') }}">&#215;</button>
+		</div>
 
+		<div id="format_unlock_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Modifying a locked format retroactively changes saved race data.') }}</p>
+				<p><button class="btn-danger" id="unlock_race_format">{{ __('Unlock') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
 
-<main class="page-settings">
+		<div id="format_delete_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Deleting a race format cannot be undone.') }}</p>
+				<p><button class="btn-danger" id="delete_race_format">{{ __('Delete') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
 
+		<ol class="form" id="race_formats">
+			<li>
+				<div class="label-block">
+					<label for="set_format_name">{{ __('Name') }}</label>
+				</div>
+				<input type="text" id="set_format_name">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_race_mode">{{ __('Race Clock Mode') }}</label>
+				</div>
+				<select id="set_race_mode">
+					<option value="1">{{ __('No Time Limit') }}</option>
+					<option value="0">{{ __('Fixed Time') }}</option><!--  / Finish Lap -->
+					<!-- <option value="2">{{ __('Fixed Time / End Immediately') }}</option> -->
+				</select>
+			</li>
+			<li id="format-race-duration-field">
+				<div class="label-block">
+					<label for="set_fix_race_time">{{ __('Timer Duration (seconds)') }}</label>
+				</div>
+				<input type="number" id="set_fix_race_time" min="0" max="99999">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_start_delay_min">{{ __('Minimum Start Delay') }}</label>
+					<p class="desc">{{ __('Minimum time before race begins') }}</p>
+				</div>
+				<input type="number" id="set_start_delay_min" min="0" max="999">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_start_delay_max">{{ __('Maximum Start Delay') }}</label>
+					<p class="desc">{{ __('Maximum time before race begins') }}<br />
+						{{ __('Staging timer is hidden unless value matches Minimum Start Delay') }}</p>
+				</div>
+				<input type="number" id="set_start_delay_max" min="0" max="999">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_staging_tones">{{ __('Staging Tones') }}</label>
+				</div>
+				<select id="set_staging_tones">
+					<option value="2">{{ __('Each Second') }}</option>
+					<option value="1">{{ __('One') }}</option>
+					<option value="0">{{ __('None') }}</option>
+				</select>
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_start_behavior">{{ __('First Crossing') }}</label>
+				</div>
+				<select id="set_start_behavior">
+					<option value="0">{{ __('Hole Shot') }}</option>
+					<option value="1">{{ __('First Lap') }}</option>
+					<option value="2">{{ __('Staggered Start') }}</option>
+				</select>
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_win_condition">{{ __('Win Condition') }}</label>
+				</div>
+				<select id="set_win_condition">
+					<option value="1">{{ __('Most Laps in Fastest Time') }}</option>
+					<option value="5">{{ __('Most Laps Only') }}</option>
+					<option value="6">{{ __('Most Laps Only with Overtime') }}</option>
+					<option value="2">{{ __('First to X Laps') }}</option>
+					<option value="3">{{ __('Fastest Lap') }}</option>
+					<option value="4">{{ __('Fastest 3 Consecutive Laps') }}</option>
+					<option value="0">{{ __('None') }}</option>
+				</select>
+			</li>
+			<li id="format-laps-to-win-field">
+				<div class="label-block">
+					<label for="set_number_laps_win">{{ __('Number of Laps to Win') }}</label>
+				</div>
+				<input type="number" id="set_number_laps_win" min="0" max="999">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_team_racing_mode">{{ __('Team Racing Mode') }}</label>
+				</div>
+				<select id="set_team_racing_mode">
+					<option value="0">{{ __('Team Racing Disabled') }}</option>
+					<option value="1">{{ __('Team Racing Enabled') }}</option>
+				</select>
+			</li>
+		</ol>
 
+		<div id="race_format_suggestions" class="form-note emphasis"></div>
 
+		<hr />
 
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_min_lap">{{ __('Minimum Lap Time') }}</label>
+					<p class="desc">{{ __('In seconds') }}</p>
+				</div>
+				<input type="number" id="set_min_lap" min="0" max="999" value="{{ getOption('MinLapSec') }}">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_min_lap_behavior">{{ __('Minimum Lap Behavior') }}</label>
+				</div>
+				<select id="set_min_lap_behavior">
+					<option value="0">{{ __('Highlight Short Laps') }}</option>
+					<option value="1">{{ __('Discard New Short Laps') }}</option>
+				</select>
+			</li>
 
-
-
-
-
-
-
-
+		</ol>
+	</div>
+</div>
 
 <!--LED controls-->
 {% if led_events_enabled %}
@@ -2956,12 +2783,59 @@
 		<h2>{{ __('LED Events') }}</h2>
 	</div>
 	<div class="panel-content">
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_ledColorMode">{{ __('Color Mode') }}</label>
+				</div>
+				<select id="set_ledColorMode" class="set-option" data-option="ledColorMode">
+					<option value="0">{{ __('Node') }}</option>
+					<option value="1">{{ __('Pilot') }}</option>
+					<option value="2">{{ __('Frequency') }}</option>
+				</select>
+			</li>
+		</ol>
+		<hr />
 		<div id="LED-effect-setup"></div>
 	</div>
 </div>
 {% endif %}
 
+{% if led_enabled %}
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('LED Control') }}</h2>
+	</div>
+	<div class="panel-content">
+		<div class="control-set">
+			<button class="LED-off">{{ __('Turn Off') }}</button>
+		</div>
 
+		<div class="control-set">
+			<button class="LED-color color-picker" data-rgb="#0022ff" style="background-color:#0022ff"></button>
+			<button class="LED-color color-picker" data-rgb="#ff5500" style="background-color:#ff5500"></button>
+			<button class="LED-color color-picker" data-rgb="#00ff22" style="background-color:#00ff22"></button>
+			<button class="LED-color color-picker" data-rgb="#ff0055" style="background-color:#ff0055"></button>
+			<button class="LED-color color-picker" data-rgb="#ddff00" style="background-color:#ddff00"></button>
+			<button class="LED-color color-picker" data-rgb="#7700ff" style="background-color:#7700ff"></button>
+			<button class="LED-color color-picker" data-rgb="#00ffdd" style="background-color:#00ffdd"></button>
+			<button class="LED-color color-picker" data-rgb="#aaaaaa" style="background-color:#aaaaaa"></button>
+		</div>
+
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_led_brightness">{{ __('LED Brightness') }}</label>
+					<p class="desc">{{ __('Level') }}: <span id="led_brightness_value"></span></p>
+				</div>
+				<input type="range" id="set_led_brightness" min="1" max="25">
+			</li>
+		</ol>
+
+		<div id="LED-effects"></div>
+	</div>
+</div>
+{% endif %}
 
 <!--VRx Control-->
 {% if vrx_enabled %}
@@ -2992,9 +2866,198 @@
 </div>
 {% endif %}
 
+<!--Reset database-->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Database') }}</h2>
+	</div>
+	<div class="panel-content">
+		<div class="control-set">
+			<button id="backup_database">{{ __('Backup Database') }}</button>
+			{% if Debug %}<a href="/database" class="debug button-like">{{ __('View Database') }}</a>{% endif %}
+		</div>
+		<div class="control-set">
+			<select id="reset_type">
+				<option value="races">{{ __('Races') }}</option>
+				<option value="heats">{{ __('Races and Heats') }}</option>
+				<option value="classes">{{ __('Races, Heats, and Classes') }}</option>
+				<option value="pilots">{{ __('Races, Heats, and Pilots') }}</option>
+				<option value="all">{{ __('Races, Heats, Classes, and Pilots') }}</option>
+				<option value="formats">{{ __('Races and Race Formats') }}</option>
+			</select>
+			<button class="btn-danger open-mfp-popup" data-mfp-src="#clear_data_confirm">{{ __('Clear Data') }}</button>
+		</div>
+		<div class="control-set">
+			<select id="database_list" disabled="disabled">
+				<option value="-">{{ __('No Saved Databases') }}</option>
+			</select>
+			<button data-mfp-src="#database_restore_confirm" class="btn-danger open-mfp-popup" disabled="disabled">{{ __('Restore Data') }}</button>
+			<button data-mfp-src="#database_delete_confirm" class="btn-danger open-mfp-popup" disabled="disabled">{{ __('Delete Data') }}</button>
+		</div>
+		<div class="control-set">
+			<select id="exporter_list" disabled="disabled">
+				<option value="-">{{ __('No Exporters') }}</option>
+			</select>
+			<button id="export_database" disabled="disabled">{{ __('Export Data') }}</button>
+		</div>
 
+		<div id="clear_data_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Current race data is not recoverable. Are you sure?') }}</p>
+				<p><button class="btn-danger" id="reset_database">{{ __('Clear Data') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
 
+		<div id="database_restore_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Restoring overwrites all current data. Are you sure?') }}</p>
+				<p><button class="btn-danger" id="restore_database">{{ __('Restore Data') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
 
+      <div id="database_delete_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Deleted database files are not recoverable. Are you sure?') }}</p>
+				<p><button class="btn-danger" id="delete_database">{{ __('Delete Data') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
+
+	</div>
+</div>
+
+<!-- System -->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('System') }}</h2>
+	</div>
+	<div class="panel-content">
+		<div class="control-set">
+			{% if is_raspberry_pi %}
+			<button data-mfp-src="#shutdown_confirm" class="btn-danger open-mfp-popup">{{ __('Shut Down') }}</button>
+			<button data-mfp-src="#reboot_confirm" class="btn-danger open-mfp-popup">{{ __('Reboot') }}</button>
+			{% endif %}
+			{% if Debug %}
+			<button data-mfp-src="#kill_server_confirm" class="btn-danger open-mfp-popup">{{ __('Kill Server') }}</button>
+			{% endif %}
+			<a href="/hardwarelog" class="debug button-like">{{ __('Server Log') }}</a>
+			<button id="download_logs">{{ __('Download Logs') }}</button>
+			{% if node_fw_updatable %}
+			<a href="/updatenodes" class="debug button-like">{{ __('Update Nodes') }}</a>
+			{% endif %}
+		</div>
+
+		<div id="shutdown_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Shut down server?') }}</p>
+				<p><button class="btn-danger" id="shutdown_pi">{{ __('Shut Down') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
+
+		<div id="reboot_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Reboot server?') }}</p>
+				<p><button class="btn-danger" id="reboot_pi">{{ __('Reboot') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
+
+		<div id="kill_server_confirm" class="priority-message-interrupt mfp-hide popup">
+			<h2>{{ __('Alert') }}</h2>
+			<div class="popup-content">
+				<p>{{ __('Terminate RotorHazard server?') }}</p>
+				<p><button class="btn-danger" id="kill_server">{{ __('Kill Server') }}</button>
+				<button class="cancel">{{ __('Cancel') }}</button></p>
+			</div>
+		</div>
+
+		<ol class="form">
+			<li>
+				<div class="label-block">
+					<label for="set_language">{{ __('Language') }}</label>
+				</div>
+				<select id="set_language">
+					<option>{{ __('Loading...') }}</option>
+				</select>
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_time_format">{{ __('Time Format') }}</label>
+				</div>
+				<input type="text" id="set_time_format" class="set-option" data-option="timeFormat" value="{{ getOption('timeFormat') }}">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_time_format_phonetic">{{ __('Phonetic Time Format') }}</label>
+				</div>
+				<input type="text" id="set_time_format_phonetic" class="set-option" data-option="timeFormatPhonetic" value="{{ getOption('timeFormatPhonetic') }}">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_timer_name">{{ __('Timer Name') }}</label>
+				</div>
+				<input type="text" id="set_timer_name" class="set-option" data-option="timerName" value="{{ getOption('timerName') }}">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_timer_logo">{{ __('Timer Logo') }}</label>
+					<p class="desc">{{ __('File path relative to RotorHazard/server/static/user') }}</p>
+				</div>
+				<input type="text" id="set_timer_logo" class="set-option" data-option="timerLogo" value="{{ getOption('timerLogo') }}" placeholder="group-logo.png">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_hue_primary">{{ __('Primary Hue') }}</label>
+				</div>
+				<input type="range" id="set_hue_primary" class="hue-control" data-option="hue_0" value="{{ getOption('hue_0') }}" min="0" max="359">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_sat_primary">{{ __('Primary Saturation') }}</label>
+				</div>
+				<input type="range" id="set_sat_primary" class="sat-control" data-option="sat_0" value="{{ getOption('sat_0') }}" min="0" max="100">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_hue_secondary">{{ __('Secondary Hue') }}</label>
+				</div>
+				<input type="range" id="set_hue_secondary" class="hue-control" data-option="hue_1" value="{{ getOption('hue_1') }}" min="0" max="359">
+			</li>
+			<li>
+				<div class="label-block">
+					<label for="set_sat_secondary">{{ __('Secondary Saturation') }}</label>
+				</div>
+				<input type="range" id="set_sat_secondary" class="sat-control" data-option="sat_1" value="{{ getOption('sat_1') }}" min="0" max="100">
+			</li>
+		</ol>
+
+		<div class="control-set">
+			<div class="swatch primary-color">{{ __('Primary Color') }}</div>
+			<div class="swatch secondary-color">{{ __('Secondary Color') }}</div>
+		</div>
+	</div>
+</div>
+
+<!-- Status -->
+<div class="panel collapsing">
+	<div class="panel-header">
+		<h2>{{ __('Status') }}</h2>
+	</div>
+	<div class="panel-content">
+		<div id="cluster-status" class="control-set">
+		</div>
+		<div id="env-data-table" class="control-set">
+		</div>
+	</div>
+</div>
 
 </main>
 {% endblock %}
