@@ -20,13 +20,14 @@ body{
 /* PAGE LAYOUT */
 
 #dashboard_frame {
-	width: 100vw;
+	/*width: 100vw;*/
 	overflow-x: hidden;
 }
 
 #topbar {
 	background-color: rgba(0, 0, 17, 0.07);
 	height: 50px;
+	margin-bottom: 20px;
 }
 
 #tb_logo {
@@ -44,6 +45,16 @@ body{
 	width: calc(calc(100% - 400px)/2);
 	height: 40px;
 	float: left;
+}
+
+.widget {
+	margin-bottom: 20px;
+	background-color: #0e1726;
+}
+
+.widget .widget-header {
+	padding: 14px 20px 0px 20px!important;
+	border-bottom: 1px solid rgb(0, 0, 0);
 }
 
 
@@ -141,3 +152,16 @@ body{
 
 
 
+/* Homepage */
+.hp_sponsorlist img{
+	height: 80px;
+}
+
+.hp_eventlogo svg{
+	max-height: 100px;
+	margin-bottom: 12px;
+}
+
+.home_quickbuttons {
+	margin-bottom: 10px;
+}
