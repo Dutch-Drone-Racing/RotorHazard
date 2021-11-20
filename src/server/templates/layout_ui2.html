@@ -97,32 +97,38 @@
 			
 				  <ul>
 					<li>
-					  <a href="/event" class="active">
-						<span class="icon"><i class="fas fa-dice-d6"></i></span>
+						<a href="/run2" class="admin-hide">
+						  <span class="icon"><i class="fas fa-stopwatch"></i></span>
+						  <span class="title">{{ __("Run") }}</span>
+						</a>
+					  </li>					
+					<li>
+					  <a href="/event" class="">
+						<span class="icon"><i class="fas fa-sitemap"></i></span>
 						<span class="title">{{ __("Event") }}</span>
 					  </a>
 					</li>
 					<li>
 					  <a href="/results">
-						<span class="icon"><i class="fab fa-delicious"></i></span>
+						<span class="icon"><i class="fas fa-trophy"></i></span>
 						<span class="title">{{ __("Results") }}</span>
 					  </a>
 					</li>
 					<li>
 					  <a href="/current">
-						<span class="icon"><i class="fab fa-elementor"></i></span>
+						<span class="icon"><i class="fas fa-flag-checkered"></i></span>
 						<span class="title">{{ __("Current") }}</span>
 					  </a>
 					</li>
 					<li>
-					  <a href="/marshal">
-						<span class="icon"><i class="fas fa-chart-pie"></i></span>
+					  <a href="/marshal" class="admin-hide">
+						<span class="icon"><i class="fas fa-microscope"></i></span>
 						<span class="title">{{ __("Marshal") }}</span>
 					  </a>
 					</li>
 					<li>
-					  <a href="/settings">
-						<span class="icon"><i class="fas fa-border-all"></i></span>
+					  <a href="/settings" class="admin-hide">
+						<span class="icon"><i class="fas fa-cogs"></i></span>
 						<span class="title">{{ __("Settings") }}</span>
 					  </a>
 					</li>
@@ -132,22 +138,24 @@
 			</div>
 
 			<div class="container">
-			  		
 					<div id="topbar">
 						
-						<div id="tb_btns_left">
-							
+						<div id="tb_btns_left">	
 						</div>
 						
 						<div id="tb_logo">
 							<!--<img src="./static/user/ddr_logo_top.png">-->
-							<a href="/"><img src="./static/ddr/img/rh_icon.svg"></a>
-							
+							{% if getOption("timerLogo") %}
+								<a href="/"><img src="./static/user/{{ getOption('timerLogo') }}" alt="{{ getOption('timerName') }}"></a>
+							{% else %}
+								<a href="/"><img src="./static/ddr/img/rh_icon.svg"></a>
+							{% endif %}
+
 						</div>
 						
 						<div id="tb_btns_right">
 							
-							<div id="statusicons">
+							<div id="statusicons" class="admin-hide">
 								
 								<div class="si_item si_item_connected">
 									<div class="si_item_icon"><i class="fas fa-battery-three-quarters"></i></div>
@@ -177,15 +185,13 @@
 		
 	</div>	
 
+    <link href="/static/ddr/assets/css/rotorhazard/ui2.css" rel="stylesheet">
+    <link href="/static/ddr/assets/css/rotorhazard/sidebar.css" rel="stylesheet">
 
 	<link href="/static/ddr/assets/css/rotorhazard/rotorhazard_essentials.css" rel="stylesheet"> 
     <link href="/static/ddr/assets/css/rotorhazard/node.css" rel="stylesheet">
 
-    <link href="/static/ddr/assets/css/rotorhazard/ui2.css" rel="stylesheet">
-    <link href="/static/ddr/assets/css/rotorhazard/sidebar.css" rel="stylesheet">
-	
     <link href="/static/plugins/fontawesome/css/all.min.css" rel="stylesheet"> <!--load all styles -->
-
 
 </body>
 </html>
