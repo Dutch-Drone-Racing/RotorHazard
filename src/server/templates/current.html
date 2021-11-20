@@ -1,4 +1,4 @@
-{% extends "layout.html" %} {% block title %}{{ __('Current') }}{% endblock %}{% block head %}
+{% extends "layout_ui2.html" %} {% block title %}{{ __('Current') }}{% endblock %}{% block head %}
 <script type="text/javascript" charset="utf-8">
 	var data_dependencies = [
 		'all_languages',
@@ -652,7 +652,7 @@
 
 </script>
 {% endblock %} {% block content %}
-<main class="page-racepublic">
+
 
 <div class="panel" id="next-race" style="display: none">
 	<div class="panel-header">
@@ -671,181 +671,208 @@
 	</div>
 </div>
 
-<div class="panel" id="recent">
-	<div class="panel-content">
+
+<div class="row layout-top-spacing equalflex">
+
+
+
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
 		<div class="timer">
 			<div class="timing-clock"><div class="warning" title="{{ __('Browser Sync Loss') }}">&#9888;&#xFE0E;</div><div class="time-display">--:--</div></div>
 		</div>
+	    
+        <div class="statbox widget box box-shadow">
+            <div class="widget-content widget-content widget-content-area grid-system no-padding">
 
-		<h2 class="recent_heat">{{ __('Loading...') }}</h2>
+				<div class="panel" id="recent">
+					<div class="panel-content">
+				
+						<h2 class="recent_heat">{{ __('Loading...') }}</h2>
+				
+						<!--Display the race leaderboard-->
+						<div id="leaderboard"></div>
+				
+						<div id="team_leaderboard"></div>
+				
+						<div class="race_status_message"></div>
+				
+						<!--Display the current laps-->
+						<div class="race-results">
+							{% for node in nodes %}
+							<div class="node" data-id="{{ node.index }}">
+								<h4 class="callsign_{{ node.index }}">{{ __('Loading...') }}</h4>
+								<div class="channel-block" data-node="{{ node.index }}"><span class="ch"></span> <span class="fr"></span></div>
+								<table class="laps" id="current_laps_{{ node.index }}">
+									<tbody>
+									</tbody>
+								</table>
+							</div>
+							{% endfor %}
+						</div>
+					</div>
+				</div>
+				
+				
+				<!--Voice Settings-->
+				<div class="panel collapsing">
+					<div class="panel-header">
+						<h2>{{ __('Audio Control') }}</h2>
+					</div>
+					<div class="panel-content">
+				
+						<ol class="form">
+							<li>
+								<div class="label-block" id="voice_select">
+									<label for="set_voice_language">{{ __('Voice Select') }}</label>
+								</div>
+							</li>
+							<li>
+								<div class="label-block">
+									<label for="set_voice_string_language">{{ __('Voice Language') }}</label>
+								</div>
+								<select id="set_voice_string_language">
+									<option>{{ __('Loading...') }}</option>
+								</select>
+							</li>
+							<li>
+								<div class="label-block">
+									<label for="voice-calls">{{ __('Voice Calls') }}</label>
+								</div>
+								<select id="voice-calls">
+									<option value="-1">{{ __('Loading...') }}</option>
+								</select>
+							</li>
+							<li>
+								<div class="label-block">
+									{{ __('Announcements') }}
+								</div>
+								<li>
+									<div class="label-block">
+										<label for="voice_callsign">{{ __('Pilot Callsign') }}</label>
+									</div>
+									<select id="voice_callsign">
+										<option value="0">{{ __('Never') }}</option>
+										<option value="2">{{ __('Only on Non-team Races') }}</option>
+										<option value="1">{{ __('Always') }}</option>
+									</select>
+								</li>
+								<li>
+									<div class="label-block">
+										<label for="voice_lap_count">{{ __('Pilot Lap Number') }}</label>
+									</div>
+									<select id="voice_lap_count">
+										<option value="0">{{ __('Never') }}</option>
+										<option value="2">{{ __('Only on Non-team Races') }}</option>
+										<option value="1">{{ __('Always') }}</option>
+									</select>
+								</li>
+								<li>
+									<div class="label-block">
+										<label for="voice_lap_time">{{ __('Pilot Lap Time') }}</label>
+									</div>
+									<select id="voice_lap_time">
+										<option value="0">{{ __('Never') }}</option>
+										<option value="2">{{ __('Only on Non-team Races') }}</option>
+										<option value="1">{{ __('Always') }}</option>
+									</select>
+								</li>
+								<li>
+									<div class="label-block">
+										<label for="voice_race_timer">{{ __('Race Clock') }}</label>
+									</div>
+									<select id="voice_race_timer">
+										<option value="0">{{ __('Never') }}</option>
+										<option value="2">{{ __('Only on Fixed-time Races') }}</option>
+										<option value="1">{{ __('Always') }}</option>
+									</select>
+								</li>
+								<li>
+									<div class="label-block">
+										<label for="voice_team_lap_count">{{ __('Team Lap Total') }}</label>
+									</div>
+									<select id="voice_team_lap_count">
+										<option value="0">{{ __('Never') }}</option>
+										<option value="1">{{ __('On Team Races') }}</option>
+									</select>
+								</li>
+								<li>
+									<div class="label-block">
+										<label for="voice_race_winner">{{ __('Race Winner') }}</label>
+									</div>
+									<select id="voice_race_winner">
+										<option value="0">{{ __('Never') }}</option>
+										<option value="1">{{ __('Always') }}</option>
+									</select>
+								</li>
+								{% if cluster_has_secondaries %}
+								<li>
+									<div class="label-block">
+										<label for="voice_split_timer">{{ __('Split Timer') }}</label>
+									</div>
+									<select id="voice_split_timer">
+										<option value="0">{{ __('None') }}</option>
+										<option value="1">{{ __('Pilot Name') }}</option>
+										<option value="5">{{ __('Pilot Name, Split Time') }}</option>
+										<option value="3">{{ __('Pilot Name, Split ID') }}</option>
+										<option value="7">{{ __('Pilot Name, Split ID, Split Time') }}</option>
+										<option value="2">{{ __('Split ID') }}</option>
+										<option value="4">{{ __('Split Time') }}</option>
+										<option value="6">{{ __('Split ID, Split Time') }}</option>
+									</select>
+								</li>
+								{% endif %}
+							</li>
+							<li>
+								<div class="label-block">
+									<label for="set_voice_volume">{{ __('Voice Volume') }}</label>
+									<p class="desc">{{ __('Volume') }}: <span id="voice_volume_value"></span></p>
+								</div>
+								<input type="range" id="set_voice_volume" min="0" max="100">
+							</li>
+							<li>
+								<div class="label-block">
+									<label for="set_voice_rate">{{ __('Voice Rate') }}</label>
+									<p class="desc">{{ __('Rate') }}: <span id="voice_rate_value"></span></p>
+								</div>
+								<input type="range" id="set_voice_rate" min="0" max="2.0" step="0.01">
+							</li>
+							<li>
+								<div class="label-block">
+									<label for="set_voice_pitch">{{ __('Voice Pitch') }}</label>
+									<p class="desc">{{ __('Pitch') }}: <span id="voice_pitch_value"></span></p>
+								</div>
+								<input type="range" id="set_voice_pitch" min="0" max="2.0" step="0.01">
+							</li>
+							<li>
+								<div class="label-block">
+									{{ __('Indicator Beeps') }}
+								</div>
+								<ul>
+									<li><label><input type="checkbox" id="beep_race_leader_lap"> {{ __('Race Leader Lap') }}</label></li>
+									<li><label><input type="checkbox" id="beep_race_winner_declared"> {{ __('Race Winner Declared') }}</label></li>
+									<li><label><input type="checkbox" id="use_mp3_tones"> {{ __('Use MP3 Tones instead of synthetic tones') }}</label></li>
+								</ul>
+							</li>
+						</ol>
+					</div>
+				</div>
+				
 
-		<!--Display the race leaderboard-->
-		<div id="leaderboard"></div>
+            </div>
+        </div>
 
-		<div id="team_leaderboard"></div>
 
-		<div class="race_status_message"></div>
+    </div>
 
-		<!--Display the current laps-->
-		<div class="race-results">
-			{% for node in nodes %}
-			<div class="node" data-id="{{ node.index }}">
-				<h4 class="callsign_{{ node.index }}">{{ __('Loading...') }}</h4>
-				<div class="channel-block" data-node="{{ node.index }}"><span class="ch"></span> <span class="fr"></span></div>
-				<table class="laps" id="current_laps_{{ node.index }}">
-					<tbody>
-					</tbody>
-				</table>
-			</div>
-			{% endfor %}
-		</div>
-	</div>
 </div>
 
 
-<!--Voice Settings-->
-<div class="panel collapsing">
-	<div class="panel-header">
-		<h2>{{ __('Audio Control') }}</h2>
-	</div>
-	<div class="panel-content">
 
-		<ol class="form">
-			<li>
-				<div class="label-block" id="voice_select">
-					<label for="set_voice_language">{{ __('Voice Select') }}</label>
-				</div>
-			</li>
-			<li>
-				<div class="label-block">
-					<label for="set_voice_string_language">{{ __('Voice Language') }}</label>
-				</div>
-				<select id="set_voice_string_language">
-					<option>{{ __('Loading...') }}</option>
-				</select>
-			</li>
-			<li>
-				<div class="label-block">
-					<label for="voice-calls">{{ __('Voice Calls') }}</label>
-				</div>
-				<select id="voice-calls">
-					<option value="-1">{{ __('Loading...') }}</option>
-				</select>
-			</li>
-			<li>
-				<div class="label-block">
-					{{ __('Announcements') }}
-				</div>
-				<li>
-					<div class="label-block">
-						<label for="voice_callsign">{{ __('Pilot Callsign') }}</label>
-					</div>
-					<select id="voice_callsign">
-						<option value="0">{{ __('Never') }}</option>
-						<option value="2">{{ __('Only on Non-team Races') }}</option>
-						<option value="1">{{ __('Always') }}</option>
-					</select>
-				</li>
-				<li>
-					<div class="label-block">
-						<label for="voice_lap_count">{{ __('Pilot Lap Number') }}</label>
-					</div>
-					<select id="voice_lap_count">
-						<option value="0">{{ __('Never') }}</option>
-						<option value="2">{{ __('Only on Non-team Races') }}</option>
-						<option value="1">{{ __('Always') }}</option>
-					</select>
-				</li>
-				<li>
-					<div class="label-block">
-						<label for="voice_lap_time">{{ __('Pilot Lap Time') }}</label>
-					</div>
-					<select id="voice_lap_time">
-						<option value="0">{{ __('Never') }}</option>
-						<option value="2">{{ __('Only on Non-team Races') }}</option>
-						<option value="1">{{ __('Always') }}</option>
-					</select>
-				</li>
-				<li>
-					<div class="label-block">
-						<label for="voice_race_timer">{{ __('Race Clock') }}</label>
-					</div>
-					<select id="voice_race_timer">
-						<option value="0">{{ __('Never') }}</option>
-						<option value="2">{{ __('Only on Fixed-time Races') }}</option>
-						<option value="1">{{ __('Always') }}</option>
-					</select>
-				</li>
-				<li>
-					<div class="label-block">
-						<label for="voice_team_lap_count">{{ __('Team Lap Total') }}</label>
-					</div>
-					<select id="voice_team_lap_count">
-						<option value="0">{{ __('Never') }}</option>
-						<option value="1">{{ __('On Team Races') }}</option>
-					</select>
-				</li>
-				<li>
-					<div class="label-block">
-						<label for="voice_race_winner">{{ __('Race Winner') }}</label>
-					</div>
-					<select id="voice_race_winner">
-						<option value="0">{{ __('Never') }}</option>
-						<option value="1">{{ __('Always') }}</option>
-					</select>
-				</li>
-				{% if cluster_has_secondaries %}
-				<li>
-					<div class="label-block">
-						<label for="voice_split_timer">{{ __('Split Timer') }}</label>
-					</div>
-					<select id="voice_split_timer">
-						<option value="0">{{ __('None') }}</option>
-						<option value="1">{{ __('Pilot Name') }}</option>
-						<option value="5">{{ __('Pilot Name, Split Time') }}</option>
-						<option value="3">{{ __('Pilot Name, Split ID') }}</option>
-						<option value="7">{{ __('Pilot Name, Split ID, Split Time') }}</option>
-						<option value="2">{{ __('Split ID') }}</option>
-						<option value="4">{{ __('Split Time') }}</option>
-						<option value="6">{{ __('Split ID, Split Time') }}</option>
-					</select>
-				</li>
-				{% endif %}
-			</li>
-			<li>
-				<div class="label-block">
-					<label for="set_voice_volume">{{ __('Voice Volume') }}</label>
-					<p class="desc">{{ __('Volume') }}: <span id="voice_volume_value"></span></p>
-				</div>
-				<input type="range" id="set_voice_volume" min="0" max="100">
-			</li>
-			<li>
-				<div class="label-block">
-					<label for="set_voice_rate">{{ __('Voice Rate') }}</label>
-					<p class="desc">{{ __('Rate') }}: <span id="voice_rate_value"></span></p>
-				</div>
-				<input type="range" id="set_voice_rate" min="0" max="2.0" step="0.01">
-			</li>
-			<li>
-				<div class="label-block">
-					<label for="set_voice_pitch">{{ __('Voice Pitch') }}</label>
-					<p class="desc">{{ __('Pitch') }}: <span id="voice_pitch_value"></span></p>
-				</div>
-				<input type="range" id="set_voice_pitch" min="0" max="2.0" step="0.01">
-			</li>
-			<li>
-				<div class="label-block">
-					{{ __('Indicator Beeps') }}
-				</div>
-				<ul>
-					<li><label><input type="checkbox" id="beep_race_leader_lap"> {{ __('Race Leader Lap') }}</label></li>
-					<li><label><input type="checkbox" id="beep_race_winner_declared"> {{ __('Race Winner Declared') }}</label></li>
-					<li><label><input type="checkbox" id="use_mp3_tones"> {{ __('Use MP3 Tones instead of synthetic tones') }}</label></li>
-				</ul>
-			</li>
-		</ol>
-	</div>
-</div>
+<main class="page-racepublic">
+
+
+
 
 <!--Display Settings-->
 <div class="panel collapsing">

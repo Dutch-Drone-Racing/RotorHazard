@@ -58,6 +58,7 @@ body{
 }
 
 
+
 /* TIMERBOX */
 
 
@@ -157,11 +158,17 @@ body{
 	height: 80px;
 }
 
-.hp_eventlogo svg{
+.hp_eventlogo svg, .hp_eventlogo img {
 	max-height: 100px;
 	margin-bottom: 12px;
 }
 
 .home_quickbuttons {
 	margin-bottom: 10px;
+}
+
+
+
+.admin-hide {
+	display: none!important;
 }
