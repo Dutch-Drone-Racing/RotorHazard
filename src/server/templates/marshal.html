@@ -995,25 +995,26 @@
 
 				<div class="panel">
 					<div class="panel-content">
-				
+
 						<div class="control-set">
-							<label for="selected_heat" class="screen-reader-text">{{ __('Heat') }}</label>
-							<select id="selected_heat" class="heat-selector" disabled>
-								<option value="--">{{ __('Loading...') }}</option>
-							</select>
-				
-							<label for="selected_round" class="screen-reader-text">{{ __('Round') }}</label>
-							<select id="selected_round" disabled>
-								<option value="--">{{ __('Loading...') }}</option>
-							</select>
-				
-							<label for="selected_pilot" class="screen-reader-text">{{ __('Pilot') }}</label>
-							<select id="selected_pilot" disabled>
-								<option value="--">{{ __('Loading...') }}</option>
-							</select>
+							<div class="input-group mb-3">
+								<label class="input-group-text screen-reader-text" for="selected_heat">{{ __('Heat') }}:</label>
+								<select id="selected_heat" class="heat-selector form-control" disabled>
+									<option value="--">{{ __('Loading...') }}</option>
+								</select>
+								<label class="input-group-text screen-reader-text" for="selected_round">{{ __('Round') }}:</label>
+								<select id="selected_round" class="heat-selector form-control"  disabled>
+									<option value="--">{{ __('Loading...') }}</option>
+								</select>
+								<label class="input-group-text screen-reader-text" for="selected_pilot">{{ __('Pilot') }}:</label>
+								<select id="selected_pilot" class="form-control"  disabled>
+									<option value="--">{{ __('Loading...') }}</option>
+								</select>
+							</div>	
 						</div>
 				
 						<div id="race-display">
+
 							<div id="race-header">
 								<h2 id="race-title">{{ __('Select Race') }}</h2>
 								<div id="race-meta"></div>
@@ -1039,32 +1040,45 @@
 							<div class="sidebar-controls">
 								<div class="control-block">
 									<h3>{{ __('Recalculate') }}</h3>
-									<label for="enterat" class="screen-reader-text">{{ __('EnterAt') }}</label>
-									<input type="number" id="enterat" value="" placeholder="{{ __('EnterAt') }}" disabled />
-									<label for="exitat" class="screen-reader-text">{{ __('ExitAt') }}</label>
-									<input type="number" id="exitat" value="" placeholder="{{ __('ExitAt') }}" disabled />
-									<button id="recalc" disabled>{{ __('Recalculate Race') }}</button>
-									<button id="load-transitions" disabled>{{ __('Load from Node') }}</button>
-									<button id="save-transitions" disabled>{{ __('Save to Node') }}</button>
+
+									<div class="form-floating mb10">
+										<input type="number" class="form-control" id="enterat" value="" placeholder="{{ __('EnterAt') }}" disabled >
+										<label for="enterat">{{ __('EnterAt') }}</label>
+									</div>
+
+									<div class="form-floating mb10">
+										<input type="number" class="form-control" id="exitat" value="" placeholder="{{ __('ExitAt') }}" disabled >
+										<label for="exitat">{{ __('EnterAt') }}</label>
+									</div>
+
+									<button class="btn btn-sm btn-dark" id="recalc" disabled>{{ __('Recalculate Race') }}</button>
+									<button class="btn btn-sm btn-dark" id="load-transitions" disabled>{{ __('Load from Node') }}</button>
+									<button class="btn btn-sm btn-dark" id="save-transitions" disabled>{{ __('Save to Node') }}</button>
 								</div>
 								<div class="control-block">
 									<h3>{{ __('Modify') }}</h3>
-									<label for="manual-lap-time" class="screen-reader-text">{{ __('Manual Lap Time') }}</label>
-									<input type="number" id="manual-lap-time" step="0.001" placeholder="{{ __('Manual Lap Time') }}" disabled />
-									<button id="add-lap" disabled>{{ __('Add Lap') }}</button>
-									<button id="clean-laps" disabled>{{ __('Clean Deleted Laps') }}</button>
+									<div class="form-floating mb10">
+										<input type="number" class="form-control" id="manual-lap-time" step="0.001" placeholder="{{ __('Manual Lap Time') }}" disabled >
+										<label for="manual-lap-time" >{{ __('Manual Lap Time') }}</label>
+									</div>
+									<button class="btn btn-sm btn-dark" id="add-lap" disabled>{{ __('Add Lap') }}</button>
+									<button class="btn btn-sm btn-dark" id="clean-laps" disabled>{{ __('Clean Deleted Laps') }}</button>
 								</div>
 								<div class="control-block">
 									<h3>{{ __('Reassign Heat') }}</h3>
-									<select id="reassign-heat-selector" class="heat-selector" disabled>
-										<option>{{ __('Loading...') }}</option>
-									</select>
-									<button id="reassign-heat" disabled>{{ __('Reassign Heat') }}</button>
+
+									<div class="input-group mb-3">
+										<select id="reassign-heat-selector" class="form-control">
+											<option>{{ __('Loading...') }}</option>
+										</select>
+										<button class="btn btn-danger" id="reassign-heat" disabled> {{ __('Reassign') }}</button>
+									</div>
+
 								</div>
 								<div class="control-block">
 									<h3>{{ __('Confirm') }}</h3>
-									<button id="save-laps" disabled>{{ __('Commit Changes') }}</button>
-									<button id="discard-laps" disabled>{{ __('Discard Changes') }}</button>
+									<button class="btn btn-dark btn-sm" id="save-laps" disabled>{{ __('Commit Changes') }}</button>
+									<button class="btn btn-dark btn-sm" id="discard-laps" disabled>{{ __('Discard Changes') }}</button>
 								</div>
 							</div>
 						</div>
@@ -1077,6 +1091,9 @@
 
 </div>
 
-
+<!-- SET PAGE ACTIVE -->
+<script>
+	$( "#sb_btn_marshal" ).addClass( "active" );
+</script>
 
 {% endblock %}

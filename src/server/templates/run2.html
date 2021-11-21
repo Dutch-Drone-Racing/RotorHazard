@@ -2129,16 +2129,8 @@
 						<h6>{{ __('LED Brightness') }}</h6> 
 						<p class="desc led_level">{{ __('Level') }}: <span id="led_brightness_value"></span></p>
 						<input type="range" id="set_led_brightness" min="1" max="25">
+						<br>
 						
-						<br><br>
-						
-						<h6>{{ __('LED Color') }}</h6> 
-						
-						<input type="color" id="set_led_color" />
-						
-						<br><br>
-							
-				
 						<div id="LED-effects"></div>
 					</div>
 					
@@ -2584,12 +2576,9 @@
     </div>
 </div>
 
-
-
-
-
-
-
-
+<!-- SET PAGE ACTIVE -->
+<script>
+$( "#sb_btn_run2" ).addClass( "active" );
+</script>
 
 {% endblock %}

@@ -25,6 +25,15 @@ padding: 0px;
 	overflow-x: hidden;
 }
 
+.mw300 {
+	max-width: 300px;
+}
+
+.form-control:disabled, .form-control[readonly] {
+	background-color: rgb(19, 19, 19);
+	color: rgb(170, 170, 170);
+	pointer: 
+}
 
 /* PAGE LAYOUT */
 
@@ -196,4 +205,120 @@ padding: 0px;
 	font-weight: 500;
 	display: block;
 	border-radius: 3px;
+}
+
+.node table {
+	width: 100%;
+}
+.node .datarow td {
+	font-size: 12px;
+}
+
+.node .datarow td .value{
+	text-align: right!important;
+}
+
+#race_classes li h3, #heats li h3 {
+	font-size: 18px;
+	font-size: 16px;
+	background-color: #386fb6;
+	margin: 0px;
+	padding: 6px 12px;
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
+}
+
+
+/* Heats */
+
+#heat_list {
+	list-style: none;
+	padding-left: 0px;
+}
+
+#heat_list li {
+	display
+}
+
+#heat_list h3{
+	font-size: 20px;
+}
+
+#heat_list h4, #race_formats h3 {
+	font-size: 16px;
+	background-color: #386fb6;
+	margin: 0px;
+	padding: 6px 12px;
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
+}
+
+#heat_list .heats {
+	margin-bottom: 20px;
+}
+
+#heat_list .heats ol {
+	border-color: #000!important;
+}
+
+
+#race_formats ul {
+	list-style: none;
+	padding-left: 0px;
+}
+
+#race_formats > ul > li {
+	display: block;
+	float: left;
+	width: calc(20% - 0.5em);
+	margin: 0 0.25em 0.5em;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+#race_formats > ul > li .format-info {
+	padding: 8px;
+	border: 1px solid black;
+	border-top: 0px;
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
+}
+
+#race_formats > ul > li .format-info li {
+	margin-bottom: 14px;
+}
+
+#race_formats > ul > li .label {
+font-weight: 600;
+font-size: 14px;
+}
+
+#race_formats > ul > li .value {
+font-size: 13px;	
+}
+
+
+/* Marshal */
+
+#race-title {
+	font-size: 20px;
+	padding: 6px 12px;
+	border-radius: 3px;
+}
+
+#laps {
+	width: 100%;
+}
+
+.control-block h3 {
+	font-size: 18px;
+	padding: 6px 12px;
+	border-radius: 3px;	
+	margin-bottom: 6px!important;
+}
+
+
+/* Results */
+.panel.collapsing {
+	height: auto;
 }

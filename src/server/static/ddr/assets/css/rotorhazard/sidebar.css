@@ -31,7 +31,7 @@
   .main_container .sidebar ul li a{
     color: #fff;
     font-size: 18px;
-    padding: 20px 30px;
+    
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -41,8 +41,11 @@
   }
   
   .main_container .sidebar ul li a .icon{
-    margin-right: 15px;
     font-size: 28px;
+    text-align: center;
+    width: 80px;
+    height: 80px;
+    padding-top: 20px;
   }
   
   .main_container .sidebar ul li a span{
