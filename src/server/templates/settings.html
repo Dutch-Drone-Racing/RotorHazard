@@ -2126,7 +2126,7 @@
 
 
 {% if server_messages %}
-<div class="row layout-top-spacing">
+<div class="row layout-top-spacing server_messages">
 	<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
 		<div class="alert alert-danger" role="alert">
 			{{ server_messages | safe }}
@@ -2233,32 +2233,47 @@
             <div class="widget-content widget-content widget-content-area grid-system">
 
 				<div class="control-set">
-					<button id="backup_database">{{ __('Backup Database') }}</button>
+					
+					<button id="backup_database" type="button" class="btn btn-dark btn-sm mb-2 mr-2">
+						<i class="fas fa-database"></i> {{ __('Backup Database') }}
+					</button>
+
 					{% if Debug %}<a href="/database" class="debug button-like">{{ __('View Database') }}</a>{% endif %}
 				</div>
+
+
+
 				<div class="control-set">
-					<select id="reset_type">
-						<option value="races">{{ __('Races') }}</option>
-						<option value="heats">{{ __('Races and Heats') }}</option>
-						<option value="classes">{{ __('Races, Heats, and Classes') }}</option>
-						<option value="pilots">{{ __('Races, Heats, and Pilots') }}</option>
-						<option value="all">{{ __('Races, Heats, Classes, and Pilots') }}</option>
-						<option value="formats">{{ __('Races and Race Formats') }}</option>
-					</select>
-					<button class="btn-danger open-mfp-popup" data-mfp-src="#clear_data_confirm">{{ __('Clear Data') }}</button>
+					<div class="input-group mb-3">
+						<select id="reset_type" class="form-control" aria-describedby="button-addon2">
+							<option value="races">{{ __('Races') }}</option>
+							<option value="heats">{{ __('Races and Heats') }}</option>
+							<option value="classes">{{ __('Races, Heats, and Classes') }}</option>
+							<option value="pilots">{{ __('Races, Heats, and Pilots') }}</option>
+							<option value="all">{{ __('Races, Heats, Classes, and Pilots') }}</option>
+							<option value="formats">{{ __('Races and Race Formats') }}</option>
+						</select>
+						<button class="btn btn-danger open-mfp-popup" type="button" data-mfp-src="#clear_data_confirm" id="button-addon2">{{ __('Clear Data') }}</button>
+					</div>
 				</div>
+
 				<div class="control-set">
-					<select id="database_list" disabled="disabled">
-						<option value="-">{{ __('No Saved Databases') }}</option>
-					</select>
-					<button data-mfp-src="#database_restore_confirm" class="btn-danger open-mfp-popup" disabled="disabled">{{ __('Restore Data') }}</button>
-					<button data-mfp-src="#database_delete_confirm" class="btn-danger open-mfp-popup" disabled="disabled">{{ __('Delete Data') }}</button>
+					<div class="input-group mb-3">
+						<select id="database_list" disabled="disabled" class="form-control" aria-describedby="button-addon2">
+							<option value="">{{ __('No Saved Databases') }}</option>
+						</select>						
+						<button data-mfp-src="#database_restore_confirm" class="btn btn-warning open-mfp-popup" disabled="disabled">{{ __('Restore Data') }}</button>
+						<button data-mfp-src="#database_delete_confirm" class="btn btn-danger open-mfp-popup" disabled="disabled">{{ __('Delete Data') }}</button>
+					</div>
 				</div>
+
 				<div class="control-set">
-					<select id="exporter_list" disabled="disabled">
-						<option value="-">{{ __('No Exporters') }}</option>
-					</select>
-					<button id="export_database" disabled="disabled">{{ __('Export Data') }}</button>
+					<div class="input-group mb-3">
+						<select id="exporter_list" disabled="disabled" class="form-control" aria-describedby="exporter_list">
+							<option value="-">{{ __('No Exporters') }}</option>
+						</select>						
+						<button id="export_database" disabled="disabled">{{ __('Export Data') }}</button>
+					</div>
 				</div>
 		
 				<div id="clear_data_confirm" class="priority-message-interrupt mfp-hide popup">
@@ -2372,34 +2387,35 @@
 			
 
 						<div class="control-set">
-							<label for="set_profile">{{ __('Profile') }}:</label>
-							<select id="set_profile">
-								<option>{{ __('Loading...') }}</option>
-							</select>
-							<button id="add_profile">+ {{ __('Add Profile') }}</button>
-							<button class="btn-danger" id="delete_profile">&#215; {{ __('Remove') }}</button>
+							<div class="input-group mb-3">
+								<select id="set_profile" class="form-control" aria-describedby="set_profile">
+									<option>{{ __('Loading...') }}</option>
+								</select>
+								<button class="btn btn-light"  id="add_profile">+ {{ __('Add Profile') }}</button>
+								<button class="btn btn-danger" id="delete_profile"> {{ __('Remove') }}</button>
+							</div>	
 						</div>
-				
-						<ol class="form">
-							<li>
-								<div class="label-block">
-									<label for="set_profile_name">{{ __('Name') }}</label>
-								</div>
-								<input type="text" id="set_profile_name">
-							</li>
-						</ol>
+									
+						<div class="form-floating mb10">
+							<input type="text" class="form-control" id="set_profile_name">
+							<label for="set_profile_name">{{ __('Name') }}</label>
+						</div>	
+
 						<p class="form-note">{{ __('Stores frequency settings and sensor tuning values.') }}</p>
 				
 						<!--Apply preset-->
 						<div class="control-set">
-							{{ __('Preset') }}:
-							<button class="set_frequency_preset" data-preset="All-N1">{{ __('Apply Node 1') }}</button>
-							<button class="set_frequency_preset" data-preset="RB-4">{{ __('R1367') }}</button>
-							<button class="set_frequency_preset" data-preset="IMD5C">{{ __('IMD5C') }}</button>
-							<button class="set_frequency_preset" data-preset="IMD6C">{{ __('IMD6C') }}</button>
-							<button class="set_frequency_preset" data-preset="RB-8">{{ __('Raceband 8') }}</button>
-						</div>
-				
+							<div class="input-group mb-3">
+								<label class="input-group-text">{{ __('Preset') }}:</label>
+								<button class="btn btn-dark btn-sm set_frequency_preset" data-preset="All-N1">{{ __('Apply Node 1') }}</button>
+								<button class="btn btn-dark btn-sm set_frequency_preset" data-preset="RB-4">{{ __('R1367') }}</button>
+								<button class="btn btn-dark btn-sm set_frequency_preset" data-preset="IMD5C">{{ __('IMD5C') }}</button>
+								<button class="btn btn-dark btn-sm set_frequency_preset" data-preset="IMD6C">{{ __('IMD6C') }}</button>
+								<button class="btn btn-dark btn-sm set_frequency_preset" data-preset="RB-8">{{ __('Raceband 8') }}</button>
+							</div>	
+						</div>						
+	
+						<!--Node loop-->				
 						<div class="node-list">
 							{% for node in range(num_nodes) %}
 								<div class="node" data-node="{{ node }}">
@@ -2407,16 +2423,18 @@
 										<div class="vrx-header"></div>
 									{% endif %}
 									<h3><label for="set_freq_node_{{ node }}">{{ __('Node') }} {{ node + 1 }}</label></h3>
-									<select class="frequency_table" id="f_table_{{ node }}" data-node="{{ node }}"></select>
-									<label for="s_channel_{{ node }}" class="screen-reader-text">Frequency</label>
-									<input type="number" id="s_channel_{{ node }}" class="set_frequency" data-node="{{ node }}" min="5000" max="6001">
+									<div class="form-floating mb10">
+										<select class="frequency_table form-control" id="f_table_{{ node }}" data-node="{{ node }}"></select>
+										<label for="s_channel_{{ node }}" class="screen-reader-text">Frequency</label>
+									</div>	
+									<input type="number" id="s_channel_{{ node }}" class="set_frequency form-control form-control-sm" data-node="{{ node }}" min="5000" max="6001">
 								</div>
 							{% endfor %}
 						</div>
+						<br>
 						<div class="control-set" id="imd_rating_label"></div>
 						<div class="control-set vrx-warning"></div>
 									
-
 				    </div>
 				    
 				    
@@ -2442,18 +2460,21 @@
 										</canvas>
 									</div>
 									<div class="crossing crossing_flag_{{ node }}">{{ __('Clear') }}</div>
+
 									<div class="node-controls">
-										<div class="enter-exit-control">
-											<label for="set_enter_at_level_{{ node }}">{{ __('EnterAt') }}</label>
-											<input type="number" id="set_enter_at_level_{{ node }}" class="set_enter_at_level" data-node="{{ node }}" min="0" max="999">
-											<button class="cap_enter_at_btn" data-node_index="{{ node }}" title="{{ __('Capture current RSSI') }}"><svg height="1em" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M0 14h16v2H0zM10 6V0H6v6H3l5 7 5-7z"/></svg></button>
+										<label for="set_enter_at_level_{{ node }}">{{ __('EnterAt') }}:</label>
+										<div class="input-group mb-3 enter-exit-control">
+											<input type="number" id="set_enter_at_level_{{ node }}" class="form-control set_enter_at_level" data-node="{{ node }}" min="0" max="999">
+											<button class="btn btn-dark cap_enter_at_btn" data-node_index="{{ node }}" title="{{ __('Capture current RSSI') }}"><i class="fas fa-download"></i></button>
+										</div>	
+
+										<label for="set_exit_at_level_{{ node }}">{{ __('ExitAt') }}:</label>
+										<div class="input-group mb-3 enter-exit-control">
+											<input type="number" id="set_exit_at_level_{{ node }}" class="form-control set_exit_at_level" data-node="{{ node }}" min="0" max="999">
+											<button class="btn btn-dark cap_enter_at_btn" data-node_index="{{ node }}" title="{{ __('Capture current RSSI') }}"><i class="fas fa-download"></i></button>
 										</div>
 					
-										<div class="enter-exit-control">
-											<label for="set_exit_at_level_{{ node }}">{{ __('ExitAt') }}</label>
-											<input type="number" id="set_exit_at_level_{{ node }}" class="set_exit_at_level" data-node="{{ node }}" min="0" max="999">
-											<button class="cap_exit_at_btn" data-node_index="{{ node }}" title="{{ __('Capture current RSSI') }}"><svg height="1em" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M0 14h16v2H0zM10 6V0H6v6H3l5 7 5-7z"/></svg></button>
-										</div>
+							
 									</div>
 									<table>
 										<tr class="datarow">

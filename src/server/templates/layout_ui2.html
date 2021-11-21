@@ -86,6 +86,38 @@
 <body>
 
 	
+	<div class="mobile_navbar">
+		<div class="container no-padding">
+			<div class="row">
+				<a href="/run2" class="col">
+					<div class="mobnav_icon">
+						<i class="fas fa-stopwatch"></i>
+					</div>
+					<span>Run</span>
+				</a>
+				<a href="/event" class="col">
+					<div class="mobnav_icon">
+						<i class="fas fa-sitemap"></i>
+					</div>
+					<span>Event</span>
+				</a>
+				<a href="/results" class="col">
+					<div class="mobnav_icon">
+						<i class="fas fa-trophy"></i>
+					</div>
+					<span>Results</span>
+				</a>
+				<a href="/current" class="col">
+					<div class="mobnav_icon">
+						<i class="fas fa-flag-checkered"></i>
+					</div>
+					<span>Current</span>
+				</a>												
+			</div>
+		</div>
+	</div>
+
+
 
 
 	<div class="wrapper active">
@@ -144,7 +176,6 @@
 						</div>
 						
 						<div id="tb_logo">
-							<!--<img src="./static/user/ddr_logo_top.png">-->
 							{% if getOption("timerLogo") %}
 								<a href="/"><img src="./static/user/{{ getOption('timerLogo') }}" alt="{{ getOption('timerName') }}"></a>
 							{% else %}
