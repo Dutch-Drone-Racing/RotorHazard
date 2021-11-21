@@ -276,6 +276,13 @@ padding: 0px;
 	box-sizing: border-box;
 }
 
+@media only screen and (max-width: 500px) {
+	#race_formats > ul > li {
+		width: calc(100% - 0.5em);
+		margin-bottom: 20px;
+	}
+}
+
 #race_formats > ul > li .format-info {
 	padding: 8px;
 	border: 1px solid black;

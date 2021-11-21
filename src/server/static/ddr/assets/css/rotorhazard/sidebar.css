@@ -96,7 +96,7 @@
     position: fixed;
     width: calc(100vw - 20px);
     margin: 0 10px;
-    height: 60px;
+    height: 80px;
     bottom: 0px;
     background-color: #0a101b;
     z-index: 99;
@@ -104,6 +104,7 @@
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
     overflow: hidden;
+    box-shadow: 12px 0px 0px #000;
   }
 
   .mobile_navbar .row {
@@ -124,7 +125,9 @@
     .wrapper.active .main_container .container {
       width: 100%;
       margin-left: 0px;
+      padding-bottom: 80px;
     }
+    
 
     
   }
@@ -134,6 +137,7 @@
     text-align: center;
     text-decoration: none;
     border-right: 1px solid #000;
+    height: 80px;
   }
 
   .mobile_navbar a.col:last-child {
@@ -142,10 +146,15 @@
 
   .mobile_navbar .mobnav_icon {
     font-size: 16px;
-    padding-top: 10px;
+    padding-top: 16px;
   }  
 
   .mobile_navbar span {
     font-size: 10px;
     padding-top: 0px;
+    padding-bottom: 20px;
   }  
+
+  .mobile_navbar  a.col.active {
+    background-color: rgba(0, 0, 0, 0.473);
+  }
