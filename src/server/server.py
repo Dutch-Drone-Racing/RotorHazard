@@ -2035,6 +2035,7 @@ def on_stage_race():
             'hide_stage_timer': MIN != MAX,
             'pi_starts_at_s': RACE.start_time_monotonic,
             'color': ColorVal.ORANGE,
+            #'delay': RACE.start_time_delay_secs,
         }
 
         if led_manager.isEnabled():

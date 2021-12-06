@@ -81,6 +81,13 @@ padding: 0px;
 }
 
 
+.admin_top_btn {
+	float: right;
+	margin: 20px 24px;
+	font-size: 20px;
+	color: #fff;;
+}
+
 
 /* TIMERBOX */
 
@@ -329,3 +336,4 @@ font-size: 13px;
 .panel.collapsing {
 	height: auto;
 }
+
