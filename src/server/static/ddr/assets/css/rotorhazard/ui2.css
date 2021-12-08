@@ -3,6 +3,11 @@ body{
 	color: white;
 }
 
+*:focus {
+    outline: none;
+}
+
+
 .modal-content {
 	background-color: #0a101c;
 	color: white;
@@ -88,6 +93,9 @@ padding: 0px;
 	color: #fff;;
 }
 
+.input-group-text i.fas {
+	margin-right: 8px;
+}
 
 /* TIMERBOX */
 
