@@ -2696,15 +2696,61 @@
 							
 							<p class="form-note">{{ __('Format cannot be changed while a race is running.') }}</p>
 
-							<div class="control-set">
-								<label for="set_race_format">{{ __('Format:') }}</label>
-								<select id="set_race_format">
-									<option>{{ __('Loading...') }}</option>
-								</select>
-								<button id="add_race_format" title="{{ __('Duplicate Format') }}">+</button>
-								<button class="btn-danger open-mfp-popup unlock" id="unlock_race_format_button" data-mfp-src="#format_unlock_confirm" title="{{ __('Force Modify Format') }}"></button>
-								<button class="btn-danger open-mfp-popup" id="delete_race_format_button" data-mfp-src="#format_delete_confirm" title="{{ __('Remove') }}">&#215;</button>
+							<div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
+
+								<div class="input-group mb-3 control-set">
+									<span class="input-group-text" id="basic-addon1">{{ __('Format:') }}</span>
+									<select id="set_race_format" class="form-select">
+										<option>{{ __('Loading...') }}</option>
+									</select>
+									<button id="add_race_format" class="btn btn-light" title="{{ __('Duplicate Format') }}">+</button>
+									<button class="btn btn-warning open-mfp-popup unlock" id="unlock_race_format_button" data-mfp-src="#format_unlock_confirm" title="{{ __('Force Modify Format') }}"></button>
+									<button class="btn btn-danger open-mfp-popup" id="delete_race_format_button" data-mfp-src="#format_delete_confirm" title="{{ __('Remove') }}">&#215;</button>															
+								</div>
+
+								<div class="form-floating mb10">
+									<input type="text" id="set_format_name" class="form-control">
+									<label for="set_format_name">{{ __('Name') }}</label>
+								</div>
+
+								<div class="form-floating mb10">
+									<select type="text" id="set_race_mode" class="form-select">
+										<option value="1">{{ __('No Time Limit') }}</option>
+										<option value="0">{{ __('Fixed Time') }}</option><!--  / Finish Lap -->
+										<!-- <option value="2">{{ __('Fixed Time / End Immediately') }}</option> -->
+									</select>
+									<label for="set_race_mode">{{ __('Name') }}</label>
+								</div>
+	
+								
+								<div class="form-floating mb10" id="format-race-duration-field">
+									<input type="number" min="0" max="99999" id="set_fix_race_time" class="form-control">
+									<label for="set_fix_race_time">{{ __('Timer Duration (s)') }}</label>
+								</div>
+								
+								<div >
+									<div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+										<div class="form-floating mb10">
+											<input type="number" min="0" max="999" id="set_start_delay_min" class="form-control">
+											<label for="set_start_delay_min">{{ __('Minimum Start Delay') }}</label>
+											<!-- <p class="desc">{{ __('Minimum time before race begins') }}</p> -->
+										</div>
+									</div>
+									<div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+										<div class="form-floating mb10">
+											<input type="number" min="0" max="999" id="set_start_delay_max" class="form-control">
+											<label for="set_start_delay_max">{{ __('Maximum Start Delay') }}</label>
+											<!-- <p class="desc">{{ __('Maximum time before race begins') }}<br />
+													{{ __('Staging timer is hidden unless value matches Minimum Start Delay') }}</p> -->
+										</div>
+									</div>
+								</div>
+
+
+							
 							</div>
+
+						
 					
 							<div id="format_unlock_confirm" class="priority-message-interrupt mfp-hide popup">
 								<h2>{{ __('Alert') }}</h2>
@@ -2725,43 +2771,7 @@
 							</div>
 					
 							<ol class="form" id="race_formats">
-								<li>
-									<div class="label-block">
-										<label for="set_format_name">{{ __('Name') }}</label>
-									</div>
-									<input type="text" id="set_format_name">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_race_mode">{{ __('Race Clock Mode') }}</label>
-									</div>
-									<select id="set_race_mode">
-										<option value="1">{{ __('No Time Limit') }}</option>
-										<option value="0">{{ __('Fixed Time') }}</option><!--  / Finish Lap -->
-										<!-- <option value="2">{{ __('Fixed Time / End Immediately') }}</option> -->
-									</select>
-								</li>
-								<li id="format-race-duration-field">
-									<div class="label-block">
-										<label for="set_fix_race_time">{{ __('Timer Duration (seconds)') }}</label>
-									</div>
-									<input type="number" id="set_fix_race_time" min="0" max="99999">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_start_delay_min">{{ __('Minimum Start Delay') }}</label>
-										<p class="desc">{{ __('Minimum time before race begins') }}</p>
-									</div>
-									<input type="number" id="set_start_delay_min" min="0" max="999">
-								</li>
-								<li>
-									<div class="label-block">
-										<label for="set_start_delay_max">{{ __('Maximum Start Delay') }}</label>
-										<p class="desc">{{ __('Maximum time before race begins') }}<br />
-											{{ __('Staging timer is hidden unless value matches Minimum Start Delay') }}</p>
-									</div>
-									<input type="number" id="set_start_delay_max" min="0" max="999">
-								</li>
+							
 								<li>
 									<div class="label-block">
 										<label for="set_staging_tones">{{ __('Staging Tones') }}</label>
@@ -3078,17 +3088,9 @@
 													
 				            </div>
 				        </div>
-
-				        
-				        
-				        
-				        
-				        
 				    </div>
 				    
-				    
 				    <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
-					    
 				        <div class="statbox widget box box-shadow">
 				            <div class="widget-header">                                      
 				                <h4>{{ __('Announcements') }}</h4>              
@@ -3239,35 +3241,6 @@
     </div>
 </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!--VRx Control-->
 {% if vrx_enabled %}
 <div class="panel collapsing">
@@ -3296,9 +3269,6 @@
 	</div>
 </div>
 {% endif %}
-
-
-
 
 <!-- SET PAGE ACTIVE -->
 <script>

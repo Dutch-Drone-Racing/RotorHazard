@@ -345,3 +345,47 @@ font-size: 13px;
 	height: auto;
 }
 
+.rssi-graph.page {
+	height: 240px!important;
+}
+
+
+
+/* Run2 */
+h5  {
+	font-size: 18px;
+}
+
+#nextheat_title {
+	font-size: 16px;
+	font-weight: 700;
+	padding-left: 5px;
+	padding-bottom: 2px;
+	border-bottom: 1px solid #fff;
+	margin-bottom: 6px;
+}
+
+#nextheat_pilots {
+	width: 100%;
+}
+
+#nextheat_pilots .nh_pilot {
+	width: calc(50% - 12px);
+	height: 50px;
+	border: 1px solid rgba(255, 255, 255, 0.4);
+	border-radius: 6px;
+	float: left;
+	overflow: hidden;
+	text-align: center;
+	margin: 5px;
+}
+
+#nextheat_pilots .nh_pilot .nh_pilot_channel {
+	font-size: 11px;
+	padding: 4px 0 2px 0;
+}
+
+#nextheat_pilots .nh_pilot .nh_pilot_tag {
+	padding: 0;
+	font-size: 13px;
+}

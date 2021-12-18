@@ -442,6 +442,9 @@
 			socket.emit('load_data', {'load_types': [
 				'current_heat',
 			]});
+
+			setTimeout(function() { loadNextHeatInfo(); }, 100);
+			
 		});
 
 		socket.on('node_data', function (msg) {
@@ -965,12 +968,90 @@
 			return false;
 		});
 
-		$('#set_current_heat').change(function (event) {
+		$('#set_current_heat').change(function (event, msg) {
 			var data = {
 				heat: parseInt($(this).val()),
 			};
+			
 			socket.emit('set_current_heat', data);
+
+			setTimeout(function() { loadNextHeatInfo(); }, 100);			
+			
 		});
+
+
+		function loadNextHeatInfo() {
+
+			console.log(rotorhazard);
+
+			curHeat = rotorhazard['current_heat'];
+			qHeats = Object.keys(rotorhazard.heats).length;
+			
+			console.log('Aantal heats: ' + qHeats);
+			nextHeat = curHeat+1;
+
+			if (nextHeat > qHeats){
+				nextHeat = 1;
+			}
+
+
+			if(nextHeatTitle = rotorhazard.heats[nextHeat].note){
+				nextHeatTitle = rotorhazard.heats[nextHeat].note;
+			}
+			else{
+				nextHeatTitle = 'Heat ' + nextHeat;
+			}
+
+			// nextheat_title
+
+			$('#nextheat_title').html(nextHeatTitle);
+
+			nextHeatPilots = rotorhazard.heats[nextHeat].pilots;
+			
+			console.log(nextHeatTitle);
+			console.log(nextHeatPilots);
+
+			//Loop Trough Nodes
+			i = 0;
+			nodes = 8;
+			var pilotsContent = '';
+
+			while(i < nodes){
+
+				let nodeid = i;
+				let nodepilotid = nextHeatPilots[i];
+				//console.log('node nummer: ' + nodeid);
+				//console.log(nodepilotid);
+				
+				if(nodepilotid !== null && nodepilotid !== 0 ){
+
+					let pilotic = 0;
+					while (pilotic < 20){
+
+						let pilotData = rotorhazard.pilot_data[pilotic];
+						//console.log(pilotData);
+
+						if(nodepilotid === pilotData.pilot_id ){
+
+							console.log(pilotData.callsign);
+							console.log(rotorhazard.nodes[nodeid].fObj.fString);
+							let polotsNewContent = '<div class="nh_pilot"><div class="nh_pilot_channel">'+rotorhazard.nodes[nodeid].fObj.fString+'</div><div class="nh_pilot_tag">'+pilotData.callsign+'</div></div>';
+							pilotsContent = pilotsContent + polotsNewContent;
+							pilotic = 20;
+						}
+						pilotic++;
+					}
+				
+				}
+
+				i++;
+			}
+
+			$('#nextheat_pilots').html(pilotsContent);
+
+
+		
+		};
 
 		/* Voice */
 		$('#beep_on_first_pass_button').prop('disabled', rotorhazard.beep_crossing_exited);
@@ -1998,7 +2079,7 @@
 					  </div>
 					  <div class="btn-group me-2" role="group" aria-label="Racedata">
 					    <button id="save_laps" type="button" class="btn btn-lg btn-secondary"> <i class="fas fa-save"></i> </button>
-						<button id="upload_laps" type="button" class="btn btn-lg btn-secondary" disabled> <i class="fas fa-upload"></i> </button>
+						<!--<button id="upload_laps" type="button" class="btn btn-lg btn-secondary" disabled> <i class="fas fa-upload"></i> </button>-->
 					    <button id="discard_laps" type="button" class="btn btn-lg btn-secondary"> <i class="fas fa-trash-alt"></i> </button>
 					  </div>
 					</div>
@@ -2056,6 +2137,9 @@
 					</li>
 					<li class="nav-item" role="presentation">
 				    	<button class="nav-link btn-sm" id="qs_audio_tab" data-bs-toggle="pill" data-bs-target="#qs_audio" type="button" role="tab" aria-controls="qs_audio"><i class="fas fa-volume-up"></i></button>
+					</li>
+					<li class="nav-item" role="presentation">
+				    	<button class="nav-link btn-sm" id="qs_nh_info_tab" data-bs-toggle="pill" data-bs-target="#qs_nh_info" type="button" role="tab" aria-controls="nh_info"><i class="fas fa-info"></i></button>
 					</li>
 				</ul>
 				
@@ -2160,12 +2244,48 @@
 
 
 					<!-- Audio Settings -->
-					<div class="tab-pane fade" id="qs_audio" role="tabpanel" aria-labelledby="qs_audio-tab">        
+					<div class="tab-pane fade" id="qs_audio" role="tabpanel" aria-labelledby="qs_audio-tab"> 
+										
+						<div class="form-floating mb10 input-group">						
+							<input type="range" class="form-control shadow-none" id="set_voice_volume" min="0" max="100">
+							<label for="set_voice_volume">{{ __('Voice Volume') }}</label>
+							<div class="input-group-text"><i class="fas fa-volume-up"></i>  <span id="voice_volume_value"></span></div>
+						</div>		
+
+						<div class="form-floating mb10 input-group">						
+							<input type="range" class="form-control shadow-none" id="set_voice_rate" min="0" max="2.5" step="0.01">
+							<label for="set_voice_rate">{{ __('Voice Rate') }}</label>
+							<div class="input-group-text"><i class="fas fa-volume-up"></i>  <span id="voice_rate_value"></span></div>
+						</div>	
+
+						<div class="form-floating mb10 input-group">						
+							<input type="range" class="form-control shadow-none" id="set_voice_pitch" min="0" max="2.0" step="0.01">
+							<label for="set_voice_pitch">{{ __('Voice Pitch') }}</label>
+							<div class="input-group-text"><i class="fas fa-volume-up"></i>  <span id="voice_pitch_value"></span></div>
+						</div>	
+
+						<div class="form-floating mb10 input-group">						
+							<input type="range" class="form-control shadow-none" id="set_tone_volume" min="1" max="100">
+							<label for="set_tone_volume">{{ __('Tone Volume') }}</label>
+							<div class="input-group-text"><i class="fas fa-volume-up"></i>  <span id="tone_volume_value"></span></div>
+						</div>	
+
+
 			            <button type="button" class="btn btn-dark mb-2 mr-2 audiomodalbtn" data-bs-toggle="modal" data-bs-target="#audioModal">
 		                    <i class="fas fa-cogs"></i> Audio Settings
 		                </button>
 					</div>
 					
+					<div class="tab-pane fade" id="qs_nh_info" role="tabpanel" aria-labelledby="qs_nh_info-tab">        
+			            
+						<h5>Next Heat:</h5>
+
+						<div id="nextheat_title">Heat X</div>
+
+						<div id="nextheat_pilots">
+						</div>
+						
+					</div>					
 					
 					
 
@@ -2351,195 +2471,75 @@
 				                <h4>{{ __('Voice Type') }}</h4>              
 				            </div>
 				
-				            <div class="widget-content widget-content widget-content-area grid-system no-padding">
+				            <div class="widget-content widget-content widget-content-area grid-system">
 					            
-								<ol class="form">
-									<li>
-										<div class="label-block">
-											<label for="set_voice_language">{{ __('Voice Select') }}</label>
-										</div>
-										<div id="voice_select"></div>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="set_voice_string_language">{{ __('Voice Language') }}</label>
-										</div>
-										<select id="set_voice_string_language">
-											<option>{{ __('Loading...') }}</option>
-										</select>
-									</li>
-								</ol>
-					            							
-					            							
-				            </div>
-				        </div>
-				        
-				        <br>
-				        
-				        <div class="statbox widget box box-shadow">
-				            <div class="widget-header">                                      
-				                <h4>{{ __('Voice Volume') }}</h4>              
-				            </div>
-				
-				            <div class="widget-content widget-content widget-content-area grid-system no-padding">
-					            
-					            <ol class="form">
-									<li>
-										<div class="label-block">
-											<label for="set_voice_volume">{{ __('Voice Volume') }}</label>
-											<p class="desc">{{ __('Volume') }}: <span id="voice_volume_value"></span></p>
-										</div>
-										<input type="range" id="set_voice_volume" min="1" max="100">
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="set_voice_rate">{{ __('Voice Rate') }}</label>
-											<p class="desc">{{ __('Rate') }}: <span id="voice_rate_value"></span></p>
-										</div>
-										<input type="range" id="set_voice_rate" min="0" max="2.0" step="0.01">
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="set_voice_pitch">{{ __('Voice Pitch') }}</label>
-											<p class="desc">{{ __('Pitch') }}: <span id="voice_pitch_value"></span></p>
-										</div>
-										<input type="range" id="set_voice_pitch" min="0" max="2.0" step="0.01">
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="set_tone_volume">{{ __('Tone Volume') }}</label>
-											<p class="desc">{{ __('Volume') }}: <span id="tone_volume_value"></span></p>
-										</div>
-										<input type="range" id="set_tone_volume" min="1" max="100">
-									</li>
-					            </ol>
-													
-				            </div>
-				        </div>
+								<div class="form-floating mb10" id="voice_select">
+								</div>
 
-				        
-				        
-				        
-				        
-				        
-				    </div>
-				    
-				    
-				    <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
-					    
-				        <div class="statbox widget box box-shadow">
-				            <div class="widget-header">                                      
-				                <h4>{{ __('Announcements') }}</h4>              
-				            </div>
-				
-				            <div class="widget-content widget-content widget-content-area grid-system no-padding">
-					            
-						        <ol class="form">    
-							        <li>
-										<div class="label-block">
-											<label for="voice_callsign">{{ __('Pilot Callsign') }}</label>
-										</div>
-										<select id="voice_callsign">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="2">{{ __('Only on Non-team Races') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_lap_count">{{ __('Pilot Lap Number') }}</label>
-										</div>
-										<select id="voice_lap_count">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="2">{{ __('Only on Non-team Races') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_lap_time">{{ __('Pilot Lap Time') }}</label>
-										</div>
-										<select id="voice_lap_time">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="2">{{ __('Only on Non-team Races') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_race_timer">{{ __('Race Clock') }}</label>
-										</div>
-										<select id="voice_race_timer">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="2">{{ __('Only on Fixed-time Races') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_team_lap_count">{{ __('Team Lap Total') }}</label>
-										</div>
-										<select id="voice_team_lap_count">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="1">{{ __('On Team Races') }}</option>
-										</select>
-									</li>
-									<li>
-										<div class="label-block">
-											<label for="voice_race_winner">{{ __('Race Winner') }}</label>
-										</div>
-										<select id="voice_race_winner">
-											<option value="0">{{ __('Never') }}</option>
-											<option value="1">{{ __('Always') }}</option>
-										</select>
-									</li>
-									{% if cluster_has_secondaries %}
-									<li>
-										<div class="label-block">
-											<label for="voice_split_timer">{{ __('Cluster/Split Timer') }}</label>
-										</div>
-										<select id="voice_split_timer">
-											<option value="0">{{ __('None') }}</option>
-											<option value="1">{{ __('Pilot Name') }}</option>
-											<option value="5">{{ __('Pilot Name, Split Time') }}</option>
-											<option value="3">{{ __('Pilot Name, Split ID') }}</option>
-											<option value="7">{{ __('Pilot Name, Split ID, Split Time') }}</option>
-											<option value="2">{{ __('Split ID') }}</option>
-											<option value="4">{{ __('Split Time') }}</option>
-											<option value="6">{{ __('Split ID, Split Time') }}</option>
-										</select>
-									</li>
-									{% endif %}	
-						        </ol>							
-					            							
-				            </div>
-				        </div>
-				        
-				        <br>
-				        
-				      	<div class="statbox widget box box-shadow">
+								<div class="form-floating mb10">
+									<select class="form-select" id="set_voice_string_language">
+										<option>{{ __('Loading...') }}</option>
+									</select>
+									<label for="set_voice_string_language">{{ __('Voice Language') }}</label>
+								</div>
+							</div>
+						</div>
+
+
+						<div class="statbox widget box box-shadow">
 				            <div class="widget-header">                                      
 				                <h4>{{ __('Indicator Beeps') }}</h4>              
 				            </div>
 				
 				            <div class="widget-content widget-content widget-content-area grid-system no-padding">
 					            
+
+
+								<div class="form-check form-switch">
+									<input class="form-check-input" type="checkbox" role="switch" id="beep_on_first_pass_button">
+									<label class="form-check-label" for="beep_on_first_pass_button">{{ __('On First Pass') }}</label>
+								</div>
+
+								<div class="form-check form-switch">
+									<input class="form-check-input" type="checkbox" role="switch" id="beep_crossing_entered">
+									<label class="form-check-label" for="beep_crossing_entered">{{ __('Crossing Entered') }}</label>
+								</div>
+
+								<div class="form-check form-switch">
+									<input class="form-check-input" type="checkbox" role="switch" id="beep_crossing_exited">
+									<label class="form-check-label" for="beep_crossing_exited">{{ __('Crossing Exited') }}</label>
+								</div>
+
+								<div class="form-check form-switch">
+									<input class="form-check-input" type="checkbox" role="switch" id="beep_manual_lap_button">
+									<label class="form-check-label" for="beep_manual_lap_button">{{ __('Manual Lap Button') }}</label>
+								</div>
+								
+								
+								<div class="form-check form-switch">
+									<input class="form-check-input" type="checkbox" role="switch" id="beep_race_leader_lap">
+									<label class="form-check-label" for="beep_race_leader_lap">{{ __('Race Leader Lap') }}</label>
+								</div>
+
+								<div class="form-check form-switch">
+									<input class="form-check-input" type="checkbox" role="switch" id="beep_race_winner_declared">
+									<label class="form-check-label" for="beep_race_winner_declared">{{ __('Race Winner Declared') }}</label>
+								</div>
+
+								{% if cluster_has_secondaries %}
+								<div class="form-check form-switch">
+									<input class="form-check-input" type="checkbox" role="switch" id="beep_cluster_connect">
+									<label class="form-check-label" for="beep_cluster_connect">{{ __('Cluster Timer Connect / Disconnect') }}</label>
+								</div>								
+								{% endif %}
+
+								<div class="form-check form-switch">
+									<input class="form-check-input" type="checkbox" role="switch" id="use_mp3_tones">
+									<label class="form-check-label" for="use_mp3_tones">{{ __('Use MP3 Tones instead of synthetic tones') }}</label>
+								</div>
+
 					           	<ol class="form">
-									<li>
-									
-										<ul>
-											<li><label><input type="checkbox" id="beep_on_first_pass_button"> {{ __('On First Pass') }}</label></li>
-											<li><label><input type="checkbox" id="beep_crossing_entered"> {{ __('Crossing Entered') }}</label></li>
-											<li><label><input type="checkbox" id="beep_crossing_exited"> {{ __('Crossing Exited') }}</label></li>
-											<li><label><input type="checkbox" id="beep_manual_lap_button"> {{ __('Manual Lap Button') }}</label></li>
-											<li><label><input type="checkbox" id="beep_race_leader_lap"> {{ __('Race Leader Lap') }}</label></li>
-											<li><label><input type="checkbox" id="beep_race_winner_declared"> {{ __('Race Winner Declared') }}</label></li>
-											{% if cluster_has_secondaries %}
-											<li><label><input type="checkbox" id="beep_cluster_connect"> {{ __('Cluster Timer Connect / Disconnect') }}</label></li>
-											{% endif %}
-											<li><label><input type="checkbox" id="use_mp3_tones"> {{ __('Use MP3 Tones instead of synthetic tones') }}</label></li>
-										</ul>
-									</li>
+							
 									<li>
 										<div class="label-block">
 											<label for="set_indicator_volume">{{ __('Indicator Beeps Volume') }}</label>
@@ -2550,7 +2550,89 @@
 								</ol>		
 					           						
 				            </div>
-				        </div>  
+				        </div>  						
+						  
+				    </div>
+				    
+				    
+				    <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
+					    
+				        <div class="statbox widget box box-shadow">
+				            <div class="widget-header">                                      
+				                <h4>{{ __('Announcements') }}</h4>              
+				            </div>
+				
+				            <div class="widget-content widget-content widget-content-area grid-system">
+
+								<div class="form-floating mb10">
+									<select class="form-select" id="voice_callsign">
+										<option value="0">{{ __('Never') }}</option>
+										<option value="2">{{ __('Only on Non-team Races') }}</option>
+										<option value="1">{{ __('Always') }}</option>
+									</select>
+									<label for="voice_callsign">{{ __('Pilot Callsign') }}</label>
+								</div>
+	
+									<div class="form-floating mb10">
+										<select class="form-select" id="voice_lap_count">
+											<option value="0">{{ __('Never') }}</option>
+											<option value="2">{{ __('Only on Non-team Races') }}</option>
+											<option value="1">{{ __('Always') }}</option>
+										</select>
+										<label for="voice_lap_count">{{ __('Pilot Lap Number') }}</label>
+									</div>
+	
+									<div class="form-floating mb10">
+										<select class="form-select" id="voice_lap_time">
+											<option value="0">{{ __('Never') }}</option>
+											<option value="2">{{ __('Only on Non-team Races') }}</option>
+											<option value="1">{{ __('Always') }}</option>
+										</select>
+										<label for="voice_lap_time">{{ __('Pilot Lap Time') }}</label>
+									</div>
+	
+									<div class="form-floating mb10">
+										<select class="form-select" id="voice_race_timer">
+											<option value="0">{{ __('Never') }}</option>
+											<option value="2">{{ __('Only on Fixed-time Races') }}</option>
+											<option value="1">{{ __('Always') }}</option>
+										</select>
+										<label for="voice_race_timer">{{ __('Race Clock') }}</label>
+									</div>
+	
+									<div class="form-floating mb10">
+										<select class="form-select" id="voice_team_lap_count">
+											<option value="0">{{ __('Never') }}</option>
+											<option value="1">{{ __('On Team Races') }}</option>
+										</select>
+										<label for="voice_team_lap_count">{{ __('Team Lap Total') }}</label>
+									</div>	
+									
+									<div class="form-floating mb10">
+										<select class="form-select" id="voice_race_winner">
+											<option value="0">{{ __('Never') }}</option>
+											<option value="1">{{ __('Always') }}</option>
+										</select>
+										<label for="voice_race_winner">{{ __('Race Winner') }}</label>
+									</div>
+
+									{% if cluster_has_secondaries %}
+									<div class="form-floating mb10">
+										<select class="form-select" id="voice_split_timer">
+											<option value="0">{{ __('None') }}</option>
+											<option value="1">{{ __('Pilot Name') }}</option>
+											<option value="5">{{ __('Pilot Name, Split Time') }}</option>
+											<option value="3">{{ __('Pilot Name, Split ID') }}</option>
+											<option value="7">{{ __('Pilot Name, Split ID, Split Time') }}</option>
+											<option value="2">{{ __('Split ID') }}</option>
+											<option value="4">{{ __('Split Time') }}</option>
+											<option value="6">{{ __('Split ID, Split Time') }}</option>
+										</select>
+										<label for="voice_split_timer">{{ __('Split Timer') }}</label>
+									</div>
+									{% endif %}								
+				            </div>
+				        </div>
 				        
 				        
 				        
